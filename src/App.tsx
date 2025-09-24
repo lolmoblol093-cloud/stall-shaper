@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import AdminLogin from "./pages/AdminLogin";
+import GuestView from "./pages/GuestView";
 import Dashboard from "./pages/Dashboard";
 import TenantsPage from "./pages/TenantsPage";
 import StallsPage from "./pages/StallsPage";
@@ -21,7 +22,8 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Navigate to="/login" replace />} />
+          <Route path="/" element={<GuestView />} />
+          <Route path="/guest" element={<GuestView />} />
           <Route path="/login" element={<AdminLogin />} />
           <Route 
             path="/dashboard" 
