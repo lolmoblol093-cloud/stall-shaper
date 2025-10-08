@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,9 +12,13 @@ import {
   Star,
   Home,
   Users,
-  Mail
+  Mail,
+  LogOut
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { Session } from "@supabase/supabase-js";
 
 interface BusinessListing {
   stallCode: string;
@@ -31,9 +35,40 @@ interface BusinessListing {
 
 const GuestView = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [viewMode, setViewMode] = useState<"directory" | "available">("directory");
+  const [session, setSession] = useState<Session | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleLogout = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Logged out",
+        description: "You have been logged out successfully",
+      });
+      navigate("/login");
+    }
+  };
 
   // Mock data for public directory
   const businesses: BusinessListing[] = [
@@ -163,14 +198,25 @@ const GuestView = () => {
                 <p className="text-sm text-muted-foreground">Discover local businesses and services</p>
               </div>
             </div>
-            <Button
-              variant="outline"
-              onClick={() => navigate("/login")}
-              className="flex items-center space-x-2"
-            >
-              <Users className="h-4 w-4" />
-              <span>Admin Login</span>
-            </Button>
+            {session ? (
+              <Button
+                variant="outline"
+                onClick={handleLogout}
+                className="flex items-center space-x-2"
+              >
+                <LogOut className="h-4 w-4" />
+                <span>Logout</span>
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                onClick={() => navigate("/login")}
+                className="flex items-center space-x-2"
+              >
+                <Users className="h-4 w-4" />
+                <span>Admin Login</span>
+              </Button>
+            )}
           </div>
         </div>
       </header>
