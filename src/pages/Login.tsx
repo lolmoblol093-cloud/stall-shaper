@@ -24,18 +24,14 @@ const Login = () => {
     // Check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
-      if (session) {
-        checkUserRoleAndRedirect(session.user.id);
-      }
     });
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    // Listen for auth changes - only redirect on actual auth events (login/signup)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
-      if (session) {
-        setTimeout(() => {
-          checkUserRoleAndRedirect(session.user.id);
-        }, 0);
+      // Only redirect on SIGNED_IN event, not on initial load
+      if (event === 'SIGNED_IN' && session) {
+        checkUserRoleAndRedirect(session.user.id);
       }
     });
 
@@ -149,13 +145,7 @@ const Login = () => {
     }
   };
 
-  if (session) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <p className="text-muted-foreground">Redirecting...</p>
-      </div>
-    );
-  }
+  // Remove the auto-redirect on page load - let users see the login form
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
