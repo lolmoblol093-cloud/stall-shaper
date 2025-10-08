@@ -5,12 +5,14 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
-import AdminLogin from "./pages/AdminLogin";
+import Login from "./pages/Login";
 import GuestView from "./pages/GuestView";
 import Dashboard from "./pages/Dashboard";
 import TenantsPage from "./pages/TenantsPage";
 import StallsPage from "./pages/StallsPage";
 import DirectoryPage from "./pages/DirectoryPage";
+import PaymentsPage from "./pages/PaymentsPage";
+import SettingsPage from "./pages/SettingsPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
@@ -24,7 +26,7 @@ const App = () => (
         <Routes>
           <Route path="/" element={<GuestView />} />
           <Route path="/guest" element={<GuestView />} />
-          <Route path="/login" element={<AdminLogin />} />
+          <Route path="/login" element={<Login />} />
           <Route 
             path="/dashboard" 
             element={
@@ -61,7 +63,7 @@ const App = () => (
             path="/dashboard/payments" 
             element={
               <ProtectedRoute>
-                <div className="p-8">Payments feature coming soon...</div>
+                <PaymentsPage />
               </ProtectedRoute>
             } 
           />
@@ -69,7 +71,7 @@ const App = () => (
             path="/dashboard/settings" 
             element={
               <ProtectedRoute>
-                <div className="p-8">Settings feature coming soon...</div>
+                <SettingsPage />
               </ProtectedRoute>
             } 
           />
