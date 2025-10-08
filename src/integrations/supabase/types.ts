@@ -118,6 +118,45 @@ export type Database = {
         }
         Relationships: []
       }
+      stalls: {
+        Row: {
+          created_at: string
+          electricity_reader: string | null
+          floor: string
+          floor_size: string | null
+          id: string
+          image_url: string | null
+          monthly_rent: number
+          occupancy_status: string
+          stall_code: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          electricity_reader?: string | null
+          floor: string
+          floor_size?: string | null
+          id?: string
+          image_url?: string | null
+          monthly_rent: number
+          occupancy_status?: string
+          stall_code: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          electricity_reader?: string | null
+          floor?: string
+          floor_size?: string | null
+          id?: string
+          image_url?: string | null
+          monthly_rent?: number
+          occupancy_status?: string
+          stall_code?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       tenants: {
         Row: {
           business_name: string

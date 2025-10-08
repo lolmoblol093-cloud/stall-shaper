@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -24,81 +24,230 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Search, Edit, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Tenant {
-  id: number;
-  name: string;
-  stallCode: string;
-  contactNumber: string;
-  address: string;
-  meterNo: string;
-  status: "active" | "inactive";
-  joinDate: string;
+  id: string;
+  business_name: string;
+  contact_person: string;
+  email: string | null;
+  phone: string | null;
+  stall_number: string | null;
+  status: string | null;
+  monthly_rent: number | null;
+  lease_start_date: string | null;
+  lease_end_date: string | null;
+}
+
+interface Stall {
+  id: string;
+  stall_code: string;
+  floor: string;
+  occupancy_status: string;
 }
 
 const TenantsPage = () => {
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [availableStalls, setAvailableStalls] = useState<Stall[]>([]);
+  const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null);
+  const [loading, setLoading] = useState(true);
   
-  // Mock data - in real app this would come from an API
-  const [tenants, setTenants] = useState<Tenant[]>([
-    {
-      id: 1,
-      name: "Maria Santos",
-      stallCode: "12 (Ground Floor)",
-      contactNumber: "+63 912 345 6789",
-      address: "123 Main St, Quezon City",
-      meterNo: "MTR001",
-      status: "active",
-      joinDate: "2024-01-15"
-    },
-    {
-      id: 2,
-      name: "Juan Cruz",
-      stallCode: "5 (Ground Floor)", 
-      contactNumber: "+63 918 765 4321",
-      address: "456 Oak Ave, Manila",
-      meterNo: "MTR005",
-      status: "active",
-      joinDate: "2024-02-01"
-    },
-    {
-      id: 3,
-      name: "Ana Reyes",
-      stallCode: "18 (Second Floor)",
-      contactNumber: "+63 917 555 0123",
-      address: "789 Pine St, Makati",
-      meterNo: "MTR018",
-      status: "inactive",
-      joinDate: "2023-11-20"
+  const [newTenant, setNewTenant] = useState({
+    business_name: "",
+    contact_person: "",
+    email: "",
+    phone: "",
+    stall_number: "",
+    monthly_rent: "",
+    lease_start_date: "",
+    lease_end_date: "",
+  });
+
+  useEffect(() => {
+    fetchTenants();
+    fetchAvailableStalls();
+  }, []);
+
+  const fetchTenants = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("tenants")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      setTenants(data || []);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
-  ]);
+  };
+
+  const fetchAvailableStalls = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("stalls")
+        .select("id, stall_code, floor, occupancy_status")
+        .eq("occupancy_status", "vacant")
+        .order("stall_code");
+
+      if (error) throw error;
+      setAvailableStalls(data || []);
+    } catch (error: any) {
+      console.error("Error fetching stalls:", error);
+    }
+  };
 
   const filteredTenants = tenants.filter(tenant =>
-    tenant.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    tenant.stallCode.toLowerCase().includes(searchTerm.toLowerCase())
+    tenant.business_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    tenant.contact_person.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (tenant.stall_number && tenant.stall_number.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
-  const handleAddTenant = () => {
-    toast({
-      title: "Tenant Added",
-      description: "New tenant has been successfully registered",
-    });
-    setIsAddDialogOpen(false);
+  const handleAddTenant = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("tenants")
+        .insert([{
+          business_name: newTenant.business_name,
+          contact_person: newTenant.contact_person,
+          email: newTenant.email || null,
+          phone: newTenant.phone || null,
+          stall_number: newTenant.stall_number || null,
+          status: "active",
+          monthly_rent: newTenant.monthly_rent ? parseFloat(newTenant.monthly_rent) : null,
+          lease_start_date: newTenant.lease_start_date || null,
+          lease_end_date: newTenant.lease_end_date || null,
+        }])
+        .select();
+
+      if (error) throw error;
+
+      // Update stall occupancy status
+      if (newTenant.stall_number) {
+        await supabase
+          .from("stalls")
+          .update({ occupancy_status: "occupied" })
+          .eq("stall_code", newTenant.stall_number);
+      }
+
+      toast({
+        title: "Tenant Added",
+        description: "New tenant has been successfully registered",
+      });
+      
+      setIsAddDialogOpen(false);
+      setNewTenant({
+        business_name: "",
+        contact_person: "",
+        email: "",
+        phone: "",
+        stall_number: "",
+        monthly_rent: "",
+        lease_start_date: "",
+        lease_end_date: "",
+      });
+      
+      fetchTenants();
+      fetchAvailableStalls();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
   };
 
-  const toggleTenantStatus = (id: number) => {
-    setTenants(prev => prev.map(tenant =>
-      tenant.id === id 
-        ? { ...tenant, status: tenant.status === "active" ? "inactive" : "active" }
-        : tenant
-    ));
-    toast({
-      title: "Status Updated",
-      description: "Tenant status has been changed",
-    });
+  const handleEditTenant = async () => {
+    if (!selectedTenant) return;
+
+    try {
+      const { error } = await supabase
+        .from("tenants")
+        .update({
+          business_name: selectedTenant.business_name,
+          contact_person: selectedTenant.contact_person,
+          email: selectedTenant.email,
+          phone: selectedTenant.phone,
+          monthly_rent: selectedTenant.monthly_rent,
+          lease_start_date: selectedTenant.lease_start_date,
+          lease_end_date: selectedTenant.lease_end_date,
+        })
+        .eq("id", selectedTenant.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Tenant Updated",
+        description: "Tenant information has been successfully updated",
+      });
+      
+      setIsEditDialogOpen(false);
+      setSelectedTenant(null);
+      fetchTenants();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
   };
+
+  const toggleTenantStatus = async (tenant: Tenant) => {
+    try {
+      const newStatus = tenant.status === "active" ? "inactive" : "active";
+      
+      const { error } = await supabase
+        .from("tenants")
+        .update({ status: newStatus })
+        .eq("id", tenant.id);
+
+      if (error) throw error;
+
+      // If deactivating and tenant has a stall, free up the stall
+      if (newStatus === "inactive" && tenant.stall_number) {
+        await supabase
+          .from("stalls")
+          .update({ occupancy_status: "vacant" })
+          .eq("stall_code", tenant.stall_number);
+      }
+
+      toast({
+        title: "Status Updated",
+        description: `Tenant status changed to ${newStatus}`,
+      });
+      
+      fetchTenants();
+      fetchAvailableStalls();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-64">
+          <p className="text-muted-foreground">Loading tenants...</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
@@ -118,7 +267,7 @@ const TenantsPage = () => {
                 <span>Add New Tenant</span>
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-md">
+            <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Add New Tenant</DialogTitle>
                 <DialogDescription>
@@ -127,33 +276,86 @@ const TenantsPage = () => {
               </DialogHeader>
               <div className="space-y-4 pt-4">
                 <div className="space-y-2">
-                  <Label htmlFor="tenant-name">Full Name</Label>
-                  <Input id="tenant-name" placeholder="Enter full name" />
+                  <Label htmlFor="business-name">Business Name *</Label>
+                  <Input 
+                    id="business-name" 
+                    placeholder="Enter business name"
+                    value={newTenant.business_name}
+                    onChange={(e) => setNewTenant({...newTenant, business_name: e.target.value})}
+                    required
+                  />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="contact">Contact Number</Label>
-                  <Input id="contact" placeholder="+63 XXX XXX XXXX" />
+                  <Label htmlFor="contact-person">Contact Person *</Label>
+                  <Input 
+                    id="contact-person" 
+                    placeholder="Enter contact person name"
+                    value={newTenant.contact_person}
+                    onChange={(e) => setNewTenant({...newTenant, contact_person: e.target.value})}
+                    required
+                  />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="address">Address</Label>
-                  <Input id="address" placeholder="Complete address" />
+                  <Label htmlFor="email">Email</Label>
+                  <Input 
+                    id="email" 
+                    type="email"
+                    placeholder="email@example.com"
+                    value={newTenant.email}
+                    onChange={(e) => setNewTenant({...newTenant, email: e.target.value})}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="phone">Phone Number</Label>
+                  <Input 
+                    id="phone" 
+                    placeholder="+63 XXX XXX XXXX"
+                    value={newTenant.phone}
+                    onChange={(e) => setNewTenant({...newTenant, phone: e.target.value})}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="stall">Available Stall</Label>
-                  <Select>
+                  <Select value={newTenant.stall_number} onValueChange={(value) => setNewTenant({...newTenant, stall_number: value})}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select available stall" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="7">Stall 7 (Ground Floor)</SelectItem>
-                      <SelectItem value="15">Stall 15 (Second Floor)</SelectItem>
-                      <SelectItem value="22">Stall 22 (Second Floor)</SelectItem>
+                      {availableStalls.map((stall) => (
+                        <SelectItem key={stall.id} value={stall.stall_code}>
+                          Stall {stall.stall_code} ({stall.floor})
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="meter">Meter Number</Label>
-                  <Input id="meter" placeholder="MTR###" />
+                  <Label htmlFor="monthly-rent">Monthly Rent (₱)</Label>
+                  <Input 
+                    id="monthly-rent" 
+                    type="number"
+                    placeholder="2500"
+                    value={newTenant.monthly_rent}
+                    onChange={(e) => setNewTenant({...newTenant, monthly_rent: e.target.value})}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="lease-start">Lease Start Date</Label>
+                  <Input 
+                    id="lease-start" 
+                    type="date"
+                    value={newTenant.lease_start_date}
+                    onChange={(e) => setNewTenant({...newTenant, lease_start_date: e.target.value})}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="lease-end">Lease End Date</Label>
+                  <Input 
+                    id="lease-end" 
+                    type="date"
+                    value={newTenant.lease_end_date}
+                    onChange={(e) => setNewTenant({...newTenant, lease_end_date: e.target.value})}
+                  />
                 </div>
                 <Button onClick={handleAddTenant} className="w-full">
                   Add Tenant
@@ -190,48 +392,141 @@ const TenantsPage = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Stall Code</TableHead>
-                  <TableHead>Contact</TableHead>
-                  <TableHead>Meter No.</TableHead>
+                  <TableHead>Business Name</TableHead>
+                  <TableHead>Contact Person</TableHead>
+                  <TableHead>Phone</TableHead>
+                  <TableHead>Stall</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredTenants.map((tenant) => (
-                  <TableRow key={tenant.id}>
-                    <TableCell className="font-medium">{tenant.name}</TableCell>
-                    <TableCell>{tenant.stallCode}</TableCell>
-                    <TableCell>{tenant.contactNumber}</TableCell>
-                    <TableCell>{tenant.meterNo}</TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={tenant.status === "active" ? "default" : "secondary"}
-                        className={tenant.status === "active" ? "bg-status-active text-white" : "bg-status-inactive text-white"}
-                      >
-                        {tenant.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="space-x-2">
-                      <Button variant="outline" size="sm">
-                        <Edit className="h-4 w-4 mr-1" />
-                        Edit
-                      </Button>
-                      <Button 
-                        variant={tenant.status === "active" ? "destructive" : "default"}
-                        size="sm"
-                        onClick={() => toggleTenantStatus(tenant.id)}
-                      >
-                        {tenant.status === "active" ? "Deactivate" : "Activate"}
-                      </Button>
+                {filteredTenants.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center text-muted-foreground">
+                      No tenants found
                     </TableCell>
                   </TableRow>
-                ))}
+                ) : (
+                  filteredTenants.map((tenant) => (
+                    <TableRow key={tenant.id}>
+                      <TableCell className="font-medium">{tenant.business_name}</TableCell>
+                      <TableCell>{tenant.contact_person}</TableCell>
+                      <TableCell>{tenant.phone || "-"}</TableCell>
+                      <TableCell>{tenant.stall_number || "-"}</TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={tenant.status === "active" ? "default" : "secondary"}
+                          className={tenant.status === "active" ? "bg-status-active text-white" : "bg-status-inactive text-white"}
+                        >
+                          {tenant.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="space-x-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => {
+                            setSelectedTenant(tenant);
+                            setIsEditDialogOpen(true);
+                          }}
+                        >
+                          <Edit className="h-4 w-4 mr-1" />
+                          Edit
+                        </Button>
+                        <Button 
+                          variant={tenant.status === "active" ? "destructive" : "default"}
+                          size="sm"
+                          onClick={() => toggleTenantStatus(tenant)}
+                        >
+                          {tenant.status === "active" ? "Deactivate" : "Activate"}
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </CardContent>
         </Card>
+
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Edit Tenant</DialogTitle>
+              <DialogDescription>
+                Update tenant information
+              </DialogDescription>
+            </DialogHeader>
+            {selectedTenant && (
+              <div className="space-y-4 pt-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-business-name">Business Name</Label>
+                  <Input 
+                    id="edit-business-name" 
+                    value={selectedTenant.business_name}
+                    onChange={(e) => setSelectedTenant({...selectedTenant, business_name: e.target.value})}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-contact-person">Contact Person</Label>
+                  <Input 
+                    id="edit-contact-person" 
+                    value={selectedTenant.contact_person}
+                    onChange={(e) => setSelectedTenant({...selectedTenant, contact_person: e.target.value})}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-email">Email</Label>
+                  <Input 
+                    id="edit-email" 
+                    type="email"
+                    value={selectedTenant.email || ""}
+                    onChange={(e) => setSelectedTenant({...selectedTenant, email: e.target.value})}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-phone">Phone Number</Label>
+                  <Input 
+                    id="edit-phone" 
+                    value={selectedTenant.phone || ""}
+                    onChange={(e) => setSelectedTenant({...selectedTenant, phone: e.target.value})}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-monthly-rent">Monthly Rent (₱)</Label>
+                  <Input 
+                    id="edit-monthly-rent" 
+                    type="number"
+                    value={selectedTenant.monthly_rent || ""}
+                    onChange={(e) => setSelectedTenant({...selectedTenant, monthly_rent: parseFloat(e.target.value)})}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-lease-start">Lease Start Date</Label>
+                  <Input 
+                    id="edit-lease-start" 
+                    type="date"
+                    value={selectedTenant.lease_start_date || ""}
+                    onChange={(e) => setSelectedTenant({...selectedTenant, lease_start_date: e.target.value})}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-lease-end">Lease End Date</Label>
+                  <Input 
+                    id="edit-lease-end" 
+                    type="date"
+                    value={selectedTenant.lease_end_date || ""}
+                    onChange={(e) => setSelectedTenant({...selectedTenant, lease_end_date: e.target.value})}
+                  />
+                </div>
+                <Button onClick={handleEditTenant} className="w-full">
+                  Update Tenant
+                </Button>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>
   );

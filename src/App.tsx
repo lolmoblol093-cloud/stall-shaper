@@ -13,6 +13,7 @@ import StallsPage from "./pages/StallsPage";
 import DirectoryPage from "./pages/DirectoryPage";
 import PaymentsPage from "./pages/PaymentsPage";
 import SettingsPage from "./pages/SettingsPage";
+import ReportsPage from "./pages/ReportsPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
@@ -72,6 +73,14 @@ const App = () => (
             element={
               <ProtectedRoute>
                 <SettingsPage />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/dashboard/reports" 
+            element={
+              <ProtectedRoute>
+                <ReportsPage />
               </ProtectedRoute>
             } 
           />

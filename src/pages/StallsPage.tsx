@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,23 +17,27 @@ import {
   DialogContent, 
   DialogDescription, 
   DialogHeader, 
-  DialogTitle, 
-  DialogTrigger 
+  DialogTitle 
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Home, Search, Edit, ImageIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Stall {
-  id: number;
-  stallCode: string;
+  id: string;
+  stall_code: string;
   floor: string;
-  monthlyRent: number;
-  electricityReader: string;
-  floorSize: string;
-  occupancyStatus: "occupied" | "vacant";
-  tenantName?: string;
-  hasImage: boolean;
+  monthly_rent: number;
+  electricity_reader: string | null;
+  floor_size: string | null;
+  occupancy_status: string;
+  image_url: string | null;
+}
+
+interface Tenant {
+  stall_number: string | null;
+  business_name: string;
 }
 
 const StallsPage = () => {
@@ -41,68 +45,58 @@ const StallsPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedStall, setSelectedStall] = useState<Stall | null>(null);
-  
-  // Mock data - in real app this would come from an API
-  const [stalls, setStalls] = useState<Stall[]>([
-    {
-      id: 1,
-      stallCode: "12",
-      floor: "Ground Floor",
-      monthlyRent: 2500,
-      electricityReader: "ERD001",
-      floorSize: "3m × 4m",
-      occupancyStatus: "occupied",
-      tenantName: "Maria Santos",
-      hasImage: true
-    },
-    {
-      id: 2,
-      stallCode: "5",
-      floor: "Ground Floor",
-      monthlyRent: 2800,
-      electricityReader: "ERD005",
-      floorSize: "4m × 4m",
-      occupancyStatus: "occupied",
-      tenantName: "Juan Cruz",
-      hasImage: false
-    },
-    {
-      id: 3,
-      stallCode: "7",
-      floor: "Ground Floor",
-      monthlyRent: 2200,
-      electricityReader: "ERD007",
-      floorSize: "3m × 3m",
-      occupancyStatus: "vacant",
-      hasImage: false
-    },
-    {
-      id: 4,
-      stallCode: "18",
-      floor: "Second Floor",
-      monthlyRent: 2000,
-      electricityReader: "ERD018",
-      floorSize: "3m × 4m",
-      occupancyStatus: "occupied",
-      tenantName: "Ana Reyes",
-      hasImage: true
-    },
-    {
-      id: 5,
-      stallCode: "15",
-      floor: "Second Floor",
-      monthlyRent: 1800,
-      electricityReader: "ERD015",
-      floorSize: "2.5m × 3m",
-      occupancyStatus: "vacant",
-      hasImage: false
+  const [stalls, setStalls] = useState<Stall[]>([]);
+  const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchStalls();
+    fetchTenants();
+  }, []);
+
+  const fetchStalls = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("stalls")
+        .select("*")
+        .order("stall_code");
+
+      if (error) throw error;
+      setStalls(data || []);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
-  ]);
+  };
+
+  const fetchTenants = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("tenants")
+        .select("stall_number, business_name")
+        .eq("status", "active");
+
+      if (error) throw error;
+      setTenants(data || []);
+    } catch (error: any) {
+      console.error("Error fetching tenants:", error);
+    }
+  };
+
+  const getTenantName = (stallCode: string): string | undefined => {
+    const tenant = tenants.find(t => t.stall_number === stallCode);
+    return tenant?.business_name;
+  };
 
   const filteredStalls = stalls.filter(stall =>
-    stall.stallCode.includes(searchTerm) ||
+    stall.stall_code.includes(searchTerm) ||
     stall.floor.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    stall.tenantName?.toLowerCase().includes(searchTerm.toLowerCase())
+    getTenantName(stall.stall_code)?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const handleEditStall = (stall: Stall) => {
@@ -110,17 +104,50 @@ const StallsPage = () => {
     setIsEditDialogOpen(true);
   };
 
-  const handleUpdateStall = () => {
-    toast({
-      title: "Stall Updated",
-      description: "Stall information has been successfully updated",
-    });
-    setIsEditDialogOpen(false);
-    setSelectedStall(null);
+  const handleUpdateStall = async () => {
+    if (!selectedStall) return;
+
+    try {
+      const { error } = await supabase
+        .from("stalls")
+        .update({
+          monthly_rent: selectedStall.monthly_rent,
+          electricity_reader: selectedStall.electricity_reader,
+          floor_size: selectedStall.floor_size,
+        })
+        .eq("id", selectedStall.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Stall Updated",
+        description: "Stall information has been successfully updated",
+      });
+      
+      setIsEditDialogOpen(false);
+      setSelectedStall(null);
+      fetchStalls();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
   };
 
-  const occupiedStalls = stalls.filter(s => s.occupancyStatus === "occupied").length;
-  const vacantStalls = stalls.filter(s => s.occupancyStatus === "vacant").length;
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-64">
+          <p className="text-muted-foreground">Loading stalls...</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  const occupiedStalls = stalls.filter(s => s.occupancy_status === "occupied").length;
+  const vacantStalls = stalls.filter(s => s.occupancy_status === "vacant").length;
 
   return (
     <DashboardLayout>
@@ -179,7 +206,7 @@ const StallsPage = () => {
                   <span>All Stalls</span>
                 </CardTitle>
                 <CardDescription>
-                  Occupancy rate: {((occupiedStalls / stalls.length) * 100).toFixed(1)}%
+                  Occupancy rate: {stalls.length > 0 ? ((occupiedStalls / stalls.length) * 100).toFixed(1) : 0}%
                 </CardDescription>
               </div>
               <div className="relative">
@@ -207,45 +234,53 @@ const StallsPage = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredStalls.map((stall) => (
-                  <TableRow key={stall.id}>
-                    <TableCell className="font-medium">
-                      <div className="flex items-center space-x-2">
-                        <span>Stall {stall.stallCode}</span>
-                        {stall.hasImage && (
-                          <ImageIcon className="h-4 w-4 text-primary" />
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>{stall.floor}</TableCell>
-                    <TableCell>₱{stall.monthlyRent.toLocaleString()}</TableCell>
-                    <TableCell>{stall.floorSize}</TableCell>
-                    <TableCell>
-                      <Badge
-                        variant="default"
-                        className={stall.occupancyStatus === "occupied" 
-                          ? "bg-status-occupied text-white" 
-                          : "bg-status-vacant text-white"
-                        }
-                      >
-                        {stall.occupancyStatus}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {stall.tenantName || "-"}
-                    </TableCell>
-                    <TableCell>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => handleEditStall(stall)}
-                      >
-                        <Edit className="h-4 w-4 mr-1" />
-                        Edit
-                      </Button>
+                {filteredStalls.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center text-muted-foreground">
+                      No stalls found
                     </TableCell>
                   </TableRow>
-                ))}
+                ) : (
+                  filteredStalls.map((stall) => (
+                    <TableRow key={stall.id}>
+                      <TableCell className="font-medium">
+                        <div className="flex items-center space-x-2">
+                          <span>Stall {stall.stall_code}</span>
+                          {stall.image_url && (
+                            <ImageIcon className="h-4 w-4 text-primary" />
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>{stall.floor}</TableCell>
+                      <TableCell>₱{stall.monthly_rent.toLocaleString()}</TableCell>
+                      <TableCell>{stall.floor_size || "-"}</TableCell>
+                      <TableCell>
+                        <Badge
+                          variant="default"
+                          className={stall.occupancy_status === "occupied" 
+                            ? "bg-status-occupied text-white" 
+                            : "bg-status-vacant text-white"
+                          }
+                        >
+                          {stall.occupancy_status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {getTenantName(stall.stall_code) || "-"}
+                      </TableCell>
+                      <TableCell>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => handleEditStall(stall)}
+                        >
+                          <Edit className="h-4 w-4 mr-1" />
+                          Edit
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </CardContent>
@@ -266,26 +301,25 @@ const StallsPage = () => {
                   <Input 
                     id="stall-rate" 
                     type="number"
-                    defaultValue={selectedStall.monthlyRent}
+                    value={selectedStall.monthly_rent}
+                    onChange={(e) => setSelectedStall({...selectedStall, monthly_rent: parseFloat(e.target.value)})}
                   />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="electricity-reader">Electricity Reader</Label>
                   <Input 
                     id="electricity-reader" 
-                    defaultValue={selectedStall.electricityReader}
+                    value={selectedStall.electricity_reader || ""}
+                    onChange={(e) => setSelectedStall({...selectedStall, electricity_reader: e.target.value})}
                   />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="floor-size">Floor Size</Label>
                   <Input 
                     id="floor-size" 
-                    defaultValue={selectedStall.floorSize}
+                    value={selectedStall.floor_size || ""}
+                    onChange={(e) => setSelectedStall({...selectedStall, floor_size: e.target.value})}
                   />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="stall-image">Upload Stall Image</Label>
-                  <Input id="stall-image" type="file" accept="image/*" />
                 </div>
                 <Button onClick={handleUpdateStall} className="w-full">
                   Update Stall

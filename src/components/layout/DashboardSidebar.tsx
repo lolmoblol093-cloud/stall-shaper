@@ -18,7 +18,8 @@ import {
   LayoutDashboard, 
   MapPin,
   CreditCard,
-  Settings
+  Settings,
+  FileText
 } from "lucide-react";
 
 const navigationItems = [
@@ -46,6 +47,11 @@ const navigationItems = [
     title: "Payments",
     url: "/dashboard/payments", 
     icon: CreditCard,
+  },
+  {
+    title: "Reports",
+    url: "/dashboard/reports",
+    icon: FileText,
   },
   {
     title: "Settings",
