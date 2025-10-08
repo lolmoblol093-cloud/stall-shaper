@@ -54,20 +54,18 @@ const GuestView = () => {
   }, []);
 
   const handleLogout = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    } else {
+    try {
+      await supabase.auth.signOut();
       toast({
         title: "Logged out",
         description: "You have been logged out successfully",
       });
-      navigate("/login");
+    } catch (error) {
+      // Session already invalid, just clear local state
+      console.log("Logout error (ignoring):", error);
     }
+    // Always navigate to login regardless of error
+    navigate("/login");
   };
 
   // Mock data for public directory
