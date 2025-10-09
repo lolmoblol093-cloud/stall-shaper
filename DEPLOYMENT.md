@@ -6,6 +6,15 @@
 
 ## Local Development with Docker
 
+**IMPORTANT:** Make sure your `.env` file exists with Supabase credentials before building!
+
+The `.env` file should contain:
+```
+VITE_SUPABASE_URL=https://zemgjqfyqrwvpdnrsckg.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InplbWdqcWZ5cXJ3dnBkbnJzY2tnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk4NjMyNDUsImV4cCI6MjA3NTQzOTI0NX0.HVLVs30LfbTI6AprrsgAmbzdODPE-VP8flFme4GksM4
+VITE_SUPABASE_PROJECT_ID=zemgjqfyqrwvpdnrsckg
+```
+
 ### Build the Docker image:
 ```bash
 docker build -t property-management-app .
@@ -22,6 +31,12 @@ docker-compose up -d
 ```
 
 Your app will be available at `http://localhost`
+
+### Troubleshooting empty page:
+If you see an empty page, check:
+1. Browser console for errors (F12)
+2. Verify .env file was copied during build
+3. Check container logs: `docker logs property-management-app`
 
 ## Production Deployment
 

@@ -14,7 +14,10 @@ RUN npm ci
 # Copy source code
 COPY . .
 
-# Build the application
+# Copy .env file for build-time environment variables
+COPY .env .env
+
+# Build the application with environment variables
 RUN npm run build
 
 # Stage 2: Serve with nginx
