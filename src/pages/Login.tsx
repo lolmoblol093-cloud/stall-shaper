@@ -62,34 +62,38 @@ const Login = () => {
     setLoading(true);
 
     try {
-      if (isSignup) {
-        const { error } = await supabase.auth.signUp({
-          email: adminForm.email,
-          password: adminForm.password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/`,
-          },
-        });
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: adminForm.email,
+        password: adminForm.password,
+      });
 
-        if (error) throw error;
+      if (error) throw error;
 
-        toast({
-          title: "Account created",
-          description: "Please check your email to confirm your account",
-        });
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({
-          email: adminForm.email,
-          password: adminForm.password,
-        });
+      // Verify admin role
+      if (data.user) {
+        const { data: roles } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", data.user.id);
 
-        if (error) throw error;
-
-        toast({
-          title: "Login successful",
-          description: "Welcome back!",
-        });
+        const isAdmin = roles?.some((r) => r.role === "admin");
+        
+        if (!isAdmin) {
+          await supabase.auth.signOut();
+          toast({
+            title: "Access Denied",
+            description: "This account does not have admin privileges",
+            variant: "destructive",
+          });
+          setLoading(false);
+          return;
+        }
       }
+
+      toast({
+        title: "Login successful",
+        description: "Welcome back, Admin!",
+      });
     } catch (error: any) {
       toast({
         title: "Error",
@@ -201,8 +205,11 @@ const Login = () => {
                   />
                 </div>
                 <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? "Please wait..." : isSignup ? "Sign Up" : "Sign In"}
+                  {loading ? "Please wait..." : "Sign In as Admin"}
                 </Button>
+                <p className="text-xs text-muted-foreground text-center mt-2">
+                  Admin accounts must be granted admin role in the database
+                </p>
               </form>
             </TabsContent>
 
