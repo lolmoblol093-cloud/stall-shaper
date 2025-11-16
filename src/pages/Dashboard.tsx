@@ -2,6 +2,7 @@ import React from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, Home, MapPin, TrendingUp } from "lucide-react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
+import { DirectoryMap } from "@/components/DirectoryMap";
 
 const Dashboard = () => {
   const stats = [
@@ -119,6 +120,16 @@ const Dashboard = () => {
             </CardContent>
           </Card>
         </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Stall Directory Map</CardTitle>
+            <CardDescription>Interactive view of all stalls and their occupancy status</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <DirectoryMap />
+          </CardContent>
+        </Card>
       </div>
     </DashboardLayout>
   );
