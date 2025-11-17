@@ -25,6 +25,17 @@ interface StallData {
   floor_size: string | null;
 }
 
+interface TenantData {
+  id: string;
+  business_name: string;
+  contact_person: string;
+  email: string | null;
+  phone: string | null;
+  lease_start_date: string | null;
+  lease_end_date: string | null;
+  stall_number: string | null;
+}
+
 const initialBoothData: Booth[] = [
   { id: 'b1', status: 'available' },
   { id: 'b2', status: 'occupied' },
@@ -125,6 +136,7 @@ export function DirectoryMap() {
   const [booths, setBooths] = useState(initialBoothData);
   const [stallsData, setStallsData] = useState<StallData[]>([]);
   const [selectedStall, setSelectedStall] = useState<StallData | null>(null);
+  const [selectedTenant, setSelectedTenant] = useState<TenantData | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
@@ -156,10 +168,30 @@ export function DirectoryMap() {
     }
   };
 
-  const handleBoothClick = (id: string) => {
+  const handleBoothClick = async (id: string) => {
     const stall = stallsData.find(s => s.stall_code === id);
     if (stall) {
       setSelectedStall(stall);
+      
+      // Fetch tenant data if stall is occupied
+      if (stall.occupancy_status === 'occupied') {
+        const { data: tenantData, error } = await supabase
+          .from('tenants')
+          .select('*')
+          .eq('stall_number', id)
+          .eq('status', 'active')
+          .maybeSingle();
+        
+        if (error) {
+          console.error('Error fetching tenant:', error);
+          setSelectedTenant(null);
+        } else {
+          setSelectedTenant(tenantData);
+        }
+      } else {
+        setSelectedTenant(null);
+      }
+      
       setIsModalOpen(true);
     }
   };
@@ -221,6 +253,48 @@ export function DirectoryMap() {
                   <span className="text-muted-foreground">Electricity Reader:</span>
                   <span className="font-medium">{selectedStall.electricity_reader}</span>
                 </div>
+              )}
+              
+              {selectedStall.occupancy_status === 'occupied' && selectedTenant && (
+                <>
+                  <div className="border-t pt-4 mt-4">
+                    <h4 className="font-semibold mb-3">Tenant Information</h4>
+                    <div className="space-y-3">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Business Name:</span>
+                        <span className="font-medium">{selectedTenant.business_name}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Contact Person:</span>
+                        <span className="font-medium">{selectedTenant.contact_person}</span>
+                      </div>
+                      {selectedTenant.phone && (
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Phone:</span>
+                          <span className="font-medium">{selectedTenant.phone}</span>
+                        </div>
+                      )}
+                      {selectedTenant.email && (
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Email:</span>
+                          <span className="font-medium">{selectedTenant.email}</span>
+                        </div>
+                      )}
+                      {selectedTenant.lease_start_date && (
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Lease Start:</span>
+                          <span className="font-medium">{new Date(selectedTenant.lease_start_date).toLocaleDateString()}</span>
+                        </div>
+                      )}
+                      {selectedTenant.lease_end_date && (
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Lease End:</span>
+                          <span className="font-medium">{new Date(selectedTenant.lease_end_date).toLocaleDateString()}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </>
               )}
             </div>
           )}
