@@ -140,28 +140,51 @@ export function DirectoryMap() {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
-    fetchStalls();
+    fetchStallsAndTenants();
   }, []);
 
-  const fetchStalls = async () => {
-    const { data, error } = await supabase
+  const fetchStallsAndTenants = async () => {
+    // Fetch stalls
+    const { data: stallsData, error: stallsError } = await supabase
       .from('stalls')
       .select('*');
     
-    if (error) {
-      console.error('Error fetching stalls:', error);
+    if (stallsError) {
+      console.error('Error fetching stalls:', stallsError);
+      return;
+    }
+
+    // Fetch active tenants
+    const { data: tenantsData, error: tenantsError } = await supabase
+      .from('tenants')
+      .select('*')
+      .eq('status', 'active');
+    
+    if (tenantsError) {
+      console.error('Error fetching tenants:', tenantsError);
       return;
     }
     
-    if (data) {
-      setStallsData(data);
-      // Update booth statuses based on actual data
+    if (stallsData) {
+      setStallsData(stallsData);
+      
+      // Update booth statuses based on actual stall data from database
+      // Match by stall_code to ensure proper connection
       setBooths(currentBooths =>
         currentBooths.map(booth => {
-          const stall = data.find(s => s.stall_code === booth.id);
+          const stall = stallsData.find(s => s.stall_code === booth.id);
+          if (!stall) {
+            // If no matching stall in database, keep as available
+            return { ...booth, status: 'available' };
+          }
+          
+          // Check if there's an active tenant for this stall
+          const tenant = tenantsData?.find(t => t.stall_number === booth.id);
+          const isOccupied = stall.occupancy_status === 'occupied' || tenant !== undefined;
+          
           return {
             ...booth,
-            status: stall?.occupancy_status === 'occupied' ? 'occupied' : 'available'
+            status: isOccupied ? 'occupied' : 'available'
           };
         })
       );
