@@ -1,9 +1,28 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './DirectoryMap.css';
+import { supabase } from '@/integrations/supabase/client';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Badge } from '@/components/ui/badge';
 
 interface Booth {
   id: string;
   status: 'available' | 'occupied';
+}
+
+interface StallData {
+  id: string;
+  stall_code: string;
+  floor: string;
+  monthly_rent: number;
+  occupancy_status: string;
+  electricity_reader: string | null;
+  floor_size: string | null;
 }
 
 const initialBoothData: Booth[] = [
@@ -104,19 +123,45 @@ function Booth({ id, status, onClick }: BoothProps) {
 
 export function DirectoryMap() {
   const [booths, setBooths] = useState(initialBoothData);
+  const [stallsData, setStallsData] = useState<StallData[]>([]);
+  const [selectedStall, setSelectedStall] = useState<StallData | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const toggleStatus = (id: string) => {
-    setBooths((currentBooths) =>
-      currentBooths.map((booth) =>
-        booth.id === id
-          ? {
-              ...booth,
-              status:
-                booth.status === 'available' ? 'occupied' : 'available',
-            }
-          : booth
-      )
-    );
+  useEffect(() => {
+    fetchStalls();
+  }, []);
+
+  const fetchStalls = async () => {
+    const { data, error } = await supabase
+      .from('stalls')
+      .select('*');
+    
+    if (error) {
+      console.error('Error fetching stalls:', error);
+      return;
+    }
+    
+    if (data) {
+      setStallsData(data);
+      // Update booth statuses based on actual data
+      setBooths(currentBooths =>
+        currentBooths.map(booth => {
+          const stall = data.find(s => s.stall_code === booth.id);
+          return {
+            ...booth,
+            status: stall?.occupancy_status === 'occupied' ? 'occupied' : 'available'
+          };
+        })
+      );
+    }
+  };
+
+  const handleBoothClick = (id: string) => {
+    const stall = stallsData.find(s => s.stall_code === id);
+    if (stall) {
+      setSelectedStall(stall);
+      setIsModalOpen(true);
+    }
   };
 
   return (
@@ -128,7 +173,7 @@ export function DirectoryMap() {
             key={booth.id}
             id={booth.id}
             status={booth.status}
-            onClick={() => toggleStatus(booth.id)}
+            onClick={() => handleBoothClick(booth.id)}
           />
         ))}
       </div>
@@ -140,6 +185,47 @@ export function DirectoryMap() {
           <div className="box is-occupied"></div> Occupied
         </div>
       </div>
+
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Stall Details - {selectedStall?.stall_code}</DialogTitle>
+            <DialogDescription>
+              View detailed information about this stall
+            </DialogDescription>
+          </DialogHeader>
+          {selectedStall && (
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">Status:</span>
+                <Badge variant={selectedStall.occupancy_status === 'occupied' ? 'destructive' : 'default'}>
+                  {selectedStall.occupancy_status}
+                </Badge>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Floor:</span>
+                <span className="font-medium">{selectedStall.floor}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Monthly Rent:</span>
+                <span className="font-medium">₱{selectedStall.monthly_rent.toLocaleString()}</span>
+              </div>
+              {selectedStall.floor_size && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Floor Size:</span>
+                  <span className="font-medium">{selectedStall.floor_size}</span>
+                </div>
+              )}
+              {selectedStall.electricity_reader && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Electricity Reader:</span>
+                  <span className="font-medium">{selectedStall.electricity_reader}</span>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
