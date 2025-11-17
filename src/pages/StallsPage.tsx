@@ -52,6 +52,21 @@ const StallsPage = () => {
   useEffect(() => {
     fetchStalls();
     fetchTenants();
+    
+    // Set up real-time subscriptions
+    const stallsChannel = supabase
+      .channel('stalls-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'stalls' }, () => {
+        fetchStalls();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tenants' }, () => {
+        fetchTenants();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(stallsChannel);
+    };
   }, []);
 
   const fetchStalls = async () => {

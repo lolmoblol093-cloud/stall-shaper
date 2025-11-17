@@ -70,6 +70,22 @@ const TenantsPage = () => {
   useEffect(() => {
     fetchTenants();
     fetchAvailableStalls();
+    
+    // Set up real-time subscriptions
+    const tenantsChannel = supabase
+      .channel('tenants-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tenants' }, () => {
+        fetchTenants();
+        fetchAvailableStalls();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'stalls' }, () => {
+        fetchAvailableStalls();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(tenantsChannel);
+    };
   }, []);
 
   const fetchTenants = async () => {
