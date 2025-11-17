@@ -1,44 +1,93 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { MapPin, Search, Building, Users } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { DirectoryMap } from "@/components/DirectoryMap";
+import { useToast } from "@/hooks/use-toast";
 
 interface DirectoryStall {
+  id: string;
   stallCode: string;
   floor: string;
   occupancyStatus: "occupied" | "vacant";
   tenantName?: string;
   businessType?: string;
+  monthlyRent?: number;
 }
 
 const DirectoryPage = () => {
+  const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedFloor, setSelectedFloor] = useState("all");
+  const [stalls, setStalls] = useState<DirectoryStall[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Mock directory data
-  const stalls: DirectoryStall[] = [
-    { stallCode: "1", floor: "Ground Floor", occupancyStatus: "occupied", tenantName: "Fresh Fruits Stand", businessType: "Grocery" },
-    { stallCode: "2", floor: "Ground Floor", occupancyStatus: "occupied", tenantName: "Maria's Bakery", businessType: "Food" },
-    { stallCode: "3", floor: "Ground Floor", occupancyStatus: "vacant" },
-    { stallCode: "4", floor: "Ground Floor", occupancyStatus: "occupied", tenantName: "Tech Accessories", businessType: "Electronics" },
-    { stallCode: "5", floor: "Ground Floor", occupancyStatus: "occupied", tenantName: "Juan Cruz Store", businessType: "General" },
-    { stallCode: "6", floor: "Ground Floor", occupancyStatus: "vacant" },
-    { stallCode: "7", floor: "Ground Floor", occupancyStatus: "vacant" },
-    { stallCode: "8", floor: "Ground Floor", occupancyStatus: "occupied", tenantName: "Fashion Hub", businessType: "Clothing" },
-    { stallCode: "9", floor: "Ground Floor", occupancyStatus: "occupied", tenantName: "Repair Shop", businessType: "Services" },
-    { stallCode: "10", floor: "Ground Floor", occupancyStatus: "occupied", tenantName: "Flower Corner", businessType: "Retail" },
-    { stallCode: "11", floor: "Second Floor", occupancyStatus: "occupied", tenantName: "Books & More", businessType: "Education" },
-    { stallCode: "12", floor: "Second Floor", occupancyStatus: "occupied", tenantName: "Maria Santos Store", businessType: "General" },
-    { stallCode: "13", floor: "Second Floor", occupancyStatus: "vacant" },
-    { stallCode: "14", floor: "Second Floor", occupancyStatus: "vacant" },
-    { stallCode: "15", floor: "Second Floor", occupancyStatus: "vacant" },
-    { stallCode: "16", floor: "Second Floor", occupancyStatus: "occupied", tenantName: "Health Supplements", businessType: "Health" },
-    { stallCode: "17", floor: "Second Floor", occupancyStatus: "occupied", tenantName: "Home Decor", businessType: "Furniture" },
-    { stallCode: "18", floor: "Second Floor", occupancyStatus: "occupied", tenantName: "Ana Reyes Shop", businessType: "Handicrafts" },
-  ];
+  useEffect(() => {
+    fetchStallsWithTenants();
+    
+    // Set up real-time subscription for stalls and tenants
+    const stallsChannel = supabase
+      .channel('stalls-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'stalls' }, () => {
+        fetchStallsWithTenants();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tenants' }, () => {
+        fetchStallsWithTenants();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(stallsChannel);
+    };
+  }, []);
+
+  const fetchStallsWithTenants = async () => {
+    try {
+      // Fetch all stalls
+      const { data: stallsData, error: stallsError } = await supabase
+        .from('stalls')
+        .select('*')
+        .order('stall_code');
+
+      if (stallsError) throw stallsError;
+
+      // Fetch all active tenants
+      const { data: tenantsData, error: tenantsError } = await supabase
+        .from('tenants')
+        .select('*')
+        .eq('status', 'active');
+
+      if (tenantsError) throw tenantsError;
+
+      // Combine stalls with tenant information
+      const combinedData: DirectoryStall[] = (stallsData || []).map(stall => {
+        const tenant = tenantsData?.find(t => t.stall_number === stall.stall_code);
+        return {
+          id: stall.id,
+          stallCode: stall.stall_code,
+          floor: stall.floor,
+          occupancyStatus: stall.occupancy_status as "occupied" | "vacant",
+          tenantName: tenant?.business_name,
+          businessType: tenant ? "Business" : undefined,
+          monthlyRent: stall.monthly_rent
+        };
+      });
+
+      setStalls(combinedData);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredStalls = stalls.filter(stall => {
     const matchesSearch = !searchTerm || 
@@ -70,6 +119,16 @@ const DirectoryPage = () => {
     };
     return colors[type || ""] || "bg-gray-400";
   };
+
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-64">
+          <p className="text-muted-foreground">Loading directory...</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
@@ -114,6 +173,13 @@ const DirectoryPage = () => {
             </Button>
           </div>
         </div>
+
+        {/* Interactive Directory Map */}
+        <Card>
+          <CardContent className="pt-6">
+            <DirectoryMap />
+          </CardContent>
+        </Card>
 
         {(selectedFloor === "all" || selectedFloor === "Ground Floor") && groundFloorStalls.length > 0 && (
           <Card>
