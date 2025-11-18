@@ -116,14 +116,15 @@ interface BoothProps {
   id: string;
   status: 'available' | 'occupied';
   onClick: () => void;
+  isHighlighted: boolean;
 }
 
-function Booth({ id, status, onClick }: BoothProps) {
+function Booth({ id, status, onClick, isHighlighted }: BoothProps) {
   const statusClass = status === 'available' ? 'is-available' : 'is-occupied';
 
   return (
     <div
-      className={`booth ${statusClass}`}
+      className={`booth ${statusClass} ${isHighlighted ? 'is-highlighted' : ''}`}
       id={id}
       onClick={onClick}
     >
@@ -132,7 +133,11 @@ function Booth({ id, status, onClick }: BoothProps) {
   );
 }
 
-export function DirectoryMap() {
+interface DirectoryMapProps {
+  highlightedStallCode?: string | null;
+}
+
+export function DirectoryMap({ highlightedStallCode }: DirectoryMapProps) {
   const [booths, setBooths] = useState(initialBoothData);
   const [stallsData, setStallsData] = useState<StallData[]>([]);
   const [selectedStall, setSelectedStall] = useState<StallData | null>(null);
@@ -229,6 +234,7 @@ export function DirectoryMap() {
             id={booth.id}
             status={booth.status}
             onClick={() => handleBoothClick(booth.id)}
+            isHighlighted={highlightedStallCode === booth.id}
           />
         ))}
       </div>

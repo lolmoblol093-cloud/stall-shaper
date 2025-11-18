@@ -25,6 +25,7 @@ const DirectoryPage = () => {
   const [selectedFloor, setSelectedFloor] = useState("all");
   const [stalls, setStalls] = useState<DirectoryStall[]>([]);
   const [loading, setLoading] = useState(true);
+  const [highlightedStallCode, setHighlightedStallCode] = useState<string | null>(null);
 
   useEffect(() => {
     fetchStallsWithTenants();
@@ -103,6 +104,15 @@ const DirectoryPage = () => {
   const groundFloorStalls = filteredStalls.filter(s => s.floor === "Ground Floor");
   const secondFloorStalls = filteredStalls.filter(s => s.floor === "Second Floor");
 
+  const handleStallClick = (stallCode: string) => {
+    setHighlightedStallCode(stallCode);
+    // Scroll to the map
+    const mapElement = document.getElementById('directory-map-section');
+    if (mapElement) {
+      mapElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
+
   const getBusinessTypeColor = (type?: string) => {
     const colors: Record<string, string> = {
       "Food": "bg-orange-500",
@@ -175,9 +185,9 @@ const DirectoryPage = () => {
         </div>
 
         {/* Interactive Directory Map */}
-        <Card>
+        <Card id="directory-map-section">
           <CardContent className="pt-6">
-            <DirectoryMap />
+            <DirectoryMap highlightedStallCode={highlightedStallCode} />
           </CardContent>
         </Card>
 
@@ -197,11 +207,12 @@ const DirectoryPage = () => {
                 {groundFloorStalls.map((stall) => (
                   <div
                     key={stall.stallCode}
-                    className={`p-4 rounded-lg border-2 transition-colors ${
+                    onClick={() => handleStallClick(stall.stallCode)}
+                    className={`p-4 rounded-lg border-2 transition-all cursor-pointer hover:shadow-lg ${
                       stall.occupancyStatus === "occupied" 
                         ? "border-status-occupied bg-card" 
                         : "border-status-vacant bg-muted/30"
-                    }`}
+                    } ${highlightedStallCode === stall.stallCode ? 'ring-2 ring-primary shadow-lg scale-105' : ''}`}
                   >
                     <div className="text-center space-y-2">
                       <div className="font-bold text-lg">Stall {stall.stallCode}</div>
@@ -250,11 +261,12 @@ const DirectoryPage = () => {
                 {secondFloorStalls.map((stall) => (
                   <div
                     key={stall.stallCode}
-                    className={`p-4 rounded-lg border-2 transition-colors ${
+                    onClick={() => handleStallClick(stall.stallCode)}
+                    className={`p-4 rounded-lg border-2 transition-all cursor-pointer hover:shadow-lg ${
                       stall.occupancyStatus === "occupied" 
                         ? "border-status-occupied bg-card" 
                         : "border-status-vacant bg-muted/30"
-                    }`}
+                    } ${highlightedStallCode === stall.stallCode ? 'ring-2 ring-primary shadow-lg scale-105' : ''}`}
                   >
                     <div className="text-center space-y-2">
                       <div className="font-bold text-lg">Stall {stall.stallCode}</div>
