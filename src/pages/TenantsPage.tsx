@@ -22,9 +22,11 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Search, Edit, Users } from "lucide-react";
+import { Plus, Search, Edit, Users, Map } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { StallSelectionMap } from "@/components/StallSelectionMap";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface Tenant {
   id: string;
@@ -55,6 +57,7 @@ const TenantsPage = () => {
   const [availableStalls, setAvailableStalls] = useState<Stall[]>([]);
   const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null);
   const [loading, setLoading] = useState(true);
+  const [selectedStallFromMap, setSelectedStallFromMap] = useState<{ code: string; data: any } | null>(null);
   
   const [newTenant, setNewTenant] = useState({
     business_name: "",
@@ -172,6 +175,7 @@ const TenantsPage = () => {
         lease_start_date: "",
         lease_end_date: "",
       });
+      setSelectedStallFromMap(null);
       
       fetchTenants();
       fetchAvailableStalls();
@@ -283,100 +287,145 @@ const TenantsPage = () => {
                 <span>Add New Tenant</span>
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Add New Tenant</DialogTitle>
                 <DialogDescription>
-                  Enter tenant details to register them to an available stall
+                  Enter tenant details and select a stall from the map or dropdown
                 </DialogDescription>
               </DialogHeader>
-              <div className="space-y-4 pt-4">
-                <div className="space-y-2">
-                  <Label htmlFor="business-name">Business Name *</Label>
-                  <Input 
-                    id="business-name" 
-                    placeholder="Enter business name"
-                    value={newTenant.business_name}
-                    onChange={(e) => setNewTenant({...newTenant, business_name: e.target.value})}
-                    required
+              
+              <Tabs defaultValue="form" className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="form">Tenant Details</TabsTrigger>
+                  <TabsTrigger value="map">
+                    <Map className="h-4 w-4 mr-2" />
+                    Select from Map
+                  </TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="form" className="space-y-4 pt-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="business-name">Business Name *</Label>
+                    <Input 
+                      id="business-name" 
+                      placeholder="Enter business name"
+                      value={newTenant.business_name}
+                      onChange={(e) => setNewTenant({...newTenant, business_name: e.target.value})}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="contact-person">Contact Person *</Label>
+                    <Input 
+                      id="contact-person" 
+                      placeholder="Enter contact person name"
+                      value={newTenant.contact_person}
+                      onChange={(e) => setNewTenant({...newTenant, contact_person: e.target.value})}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email</Label>
+                    <Input 
+                      id="email" 
+                      type="email"
+                      placeholder="email@example.com"
+                      value={newTenant.email}
+                      onChange={(e) => setNewTenant({...newTenant, email: e.target.value})}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="phone">Phone Number</Label>
+                    <Input 
+                      id="phone" 
+                      placeholder="+63 XXX XXX XXXX"
+                      value={newTenant.phone}
+                      onChange={(e) => setNewTenant({...newTenant, phone: e.target.value})}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="stall">Available Stall</Label>
+                    <Select 
+                      value={newTenant.stall_number} 
+                      onValueChange={(value) => {
+                        setNewTenant({...newTenant, stall_number: value});
+                        const stall = availableStalls.find(s => s.stall_code === value);
+                        if (stall) {
+                          setSelectedStallFromMap({ code: value, data: stall });
+                        }
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select available stall or use map" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableStalls.map((stall) => (
+                          <SelectItem key={stall.id} value={stall.stall_code}>
+                            Stall {stall.stall_code} ({stall.floor})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {selectedStallFromMap && (
+                      <p className="text-sm text-muted-foreground flex items-center gap-2">
+                        <Map className="h-4 w-4" />
+                        Selected: Stall {selectedStallFromMap.code}
+                      </p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="monthly-rent">Monthly Rent (₱)</Label>
+                    <Input 
+                      id="monthly-rent" 
+                      type="number"
+                      placeholder="2500"
+                      value={newTenant.monthly_rent}
+                      onChange={(e) => setNewTenant({...newTenant, monthly_rent: e.target.value})}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="lease-start">Lease Start Date</Label>
+                    <Input 
+                      id="lease-start" 
+                      type="date"
+                      value={newTenant.lease_start_date}
+                      onChange={(e) => setNewTenant({...newTenant, lease_start_date: e.target.value})}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="lease-end">Lease End Date</Label>
+                    <Input 
+                      id="lease-end" 
+                      type="date"
+                      value={newTenant.lease_end_date}
+                      onChange={(e) => setNewTenant({...newTenant, lease_end_date: e.target.value})}
+                    />
+                  </div>
+                  <Button onClick={handleAddTenant} className="w-full">
+                    Add Tenant
+                  </Button>
+                </TabsContent>
+                
+                <TabsContent value="map" className="pt-4">
+                  <StallSelectionMap 
+                    selectedStallCode={newTenant.stall_number || null}
+                    onStallSelect={(stallCode, stallData) => {
+                      setNewTenant({
+                        ...newTenant, 
+                        stall_number: stallCode,
+                        monthly_rent: stallData.monthly_rent?.toString() || ""
+                      });
+                      setSelectedStallFromMap({ code: stallCode, data: stallData });
+                    }}
                   />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="contact-person">Contact Person *</Label>
-                  <Input 
-                    id="contact-person" 
-                    placeholder="Enter contact person name"
-                    value={newTenant.contact_person}
-                    onChange={(e) => setNewTenant({...newTenant, contact_person: e.target.value})}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input 
-                    id="email" 
-                    type="email"
-                    placeholder="email@example.com"
-                    value={newTenant.email}
-                    onChange={(e) => setNewTenant({...newTenant, email: e.target.value})}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="phone">Phone Number</Label>
-                  <Input 
-                    id="phone" 
-                    placeholder="+63 XXX XXX XXXX"
-                    value={newTenant.phone}
-                    onChange={(e) => setNewTenant({...newTenant, phone: e.target.value})}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="stall">Available Stall</Label>
-                  <Select value={newTenant.stall_number} onValueChange={(value) => setNewTenant({...newTenant, stall_number: value})}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select available stall" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableStalls.map((stall) => (
-                        <SelectItem key={stall.id} value={stall.stall_code}>
-                          Stall {stall.stall_code} ({stall.floor})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="monthly-rent">Monthly Rent (₱)</Label>
-                  <Input 
-                    id="monthly-rent" 
-                    type="number"
-                    placeholder="2500"
-                    value={newTenant.monthly_rent}
-                    onChange={(e) => setNewTenant({...newTenant, monthly_rent: e.target.value})}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="lease-start">Lease Start Date</Label>
-                  <Input 
-                    id="lease-start" 
-                    type="date"
-                    value={newTenant.lease_start_date}
-                    onChange={(e) => setNewTenant({...newTenant, lease_start_date: e.target.value})}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="lease-end">Lease End Date</Label>
-                  <Input 
-                    id="lease-end" 
-                    type="date"
-                    value={newTenant.lease_end_date}
-                    onChange={(e) => setNewTenant({...newTenant, lease_end_date: e.target.value})}
-                  />
-                </div>
-                <Button onClick={handleAddTenant} className="w-full">
-                  Add Tenant
-                </Button>
-              </div>
+                  <div className="mt-4">
+                    <Button onClick={handleAddTenant} className="w-full" disabled={!newTenant.business_name || !newTenant.contact_person || !newTenant.stall_number}>
+                      Add Tenant
+                    </Button>
+                  </div>
+                </TabsContent>
+              </Tabs>
             </DialogContent>
           </Dialog>
         </div>
