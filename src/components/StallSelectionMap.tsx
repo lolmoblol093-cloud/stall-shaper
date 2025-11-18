@@ -118,15 +118,31 @@ function Booth({ id, status, onClick, isSelected, isDisabled }: BoothProps) {
 interface StallSelectionMapProps {
   selectedStallCode: string | null;
   onStallSelect: (stallCode: string, stallData: StallData) => void;
+  refreshTrigger?: number;
 }
 
-export function StallSelectionMap({ selectedStallCode, onStallSelect }: StallSelectionMapProps) {
+export function StallSelectionMap({ selectedStallCode, onStallSelect, refreshTrigger }: StallSelectionMapProps) {
   const [booths, setBooths] = useState(initialBoothData);
   const [stallsData, setStallsData] = useState<StallData[]>([]);
 
   useEffect(() => {
     fetchStalls();
-  }, []);
+    
+    // Set up real-time subscriptions
+    const channel = supabase
+      .channel('stall-selection-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'stalls' }, () => {
+        fetchStalls();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tenants' }, () => {
+        fetchStalls();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [refreshTrigger]);
 
   const fetchStalls = async () => {
     const { data: stallsData, error: stallsError } = await supabase

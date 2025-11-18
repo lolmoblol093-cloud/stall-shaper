@@ -58,6 +58,7 @@ const TenantsPage = () => {
   const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedStallFromMap, setSelectedStallFromMap] = useState<{ code: string; data: any } | null>(null);
+  const [mapRefreshTrigger, setMapRefreshTrigger] = useState(0);
   
   const [newTenant, setNewTenant] = useState({
     business_name: "",
@@ -80,9 +81,11 @@ const TenantsPage = () => {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tenants' }, () => {
         fetchTenants();
         fetchAvailableStalls();
+        setMapRefreshTrigger(prev => prev + 1);
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'stalls' }, () => {
         fetchAvailableStalls();
+        setMapRefreshTrigger(prev => prev + 1);
       })
       .subscribe();
 
@@ -418,6 +421,7 @@ const TenantsPage = () => {
                       });
                       setSelectedStallFromMap({ code: stallCode, data: stallData });
                     }}
+                    refreshTrigger={mapRefreshTrigger}
                   />
                   <div className="mt-4">
                     <Button onClick={handleAddTenant} className="w-full" disabled={!newTenant.business_name || !newTenant.contact_person || !newTenant.stall_number}>
