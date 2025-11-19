@@ -119,9 +119,10 @@ interface StallSelectionMapProps {
   selectedStallCode: string | null;
   onStallSelect: (stallCode: string, stallData: StallData) => void;
   refreshTrigger?: number;
+  allowOccupiedSelection?: boolean;
 }
 
-export function StallSelectionMap({ selectedStallCode, onStallSelect, refreshTrigger }: StallSelectionMapProps) {
+export function StallSelectionMap({ selectedStallCode, onStallSelect, refreshTrigger, allowOccupiedSelection = false }: StallSelectionMapProps) {
   const [booths, setBooths] = useState(initialBoothData);
   const [stallsData, setStallsData] = useState<StallData[]>([]);
 
@@ -188,8 +189,11 @@ export function StallSelectionMap({ selectedStallCode, onStallSelect, refreshTri
 
   const handleBoothClick = (id: string) => {
     const stall = stallsData.find(s => s.stall_code === id);
-    if (stall && stall.occupancy_status === 'vacant') {
-      onStallSelect(id, stall);
+    if (stall) {
+      // Allow selection if stall is vacant OR if we allow occupied selection
+      if (stall.occupancy_status === 'vacant' || allowOccupiedSelection) {
+        onStallSelect(id, stall);
+      }
     }
   };
 
@@ -197,7 +201,11 @@ export function StallSelectionMap({ selectedStallCode, onStallSelect, refreshTri
     <div className="directory-map-container">
       <div className="mb-4">
         <h3 className="text-lg font-semibold mb-2">Select a Stall from the Map</h3>
-        <p className="text-sm text-muted-foreground">Click on an available (green) stall to select it</p>
+        <p className="text-sm text-muted-foreground">
+          {allowOccupiedSelection 
+            ? "Click on any stall to view or edit its details" 
+            : "Click on an available (green) stall to select it"}
+        </p>
       </div>
       <div className="directory-map">
         {booths.map((booth) => (
@@ -207,16 +215,18 @@ export function StallSelectionMap({ selectedStallCode, onStallSelect, refreshTri
             status={booth.status}
             onClick={() => handleBoothClick(booth.id)}
             isSelected={selectedStallCode === booth.id}
-            isDisabled={booth.status === 'occupied'}
+            isDisabled={allowOccupiedSelection ? false : booth.status === 'occupied'}
           />
         ))}
       </div>
       <div className="legend mt-4">
         <div className="legend-item">
-          <div className="box is-available"></div> Available (Click to Select)
+          <div className="box is-available"></div> 
+          {allowOccupiedSelection ? "Available" : "Available (Click to Select)"}
         </div>
         <div className="legend-item">
-          <div className="box is-occupied"></div> Occupied
+          <div className="box is-occupied"></div> 
+          {allowOccupiedSelection ? "Occupied (Click to View)" : "Occupied"}
         </div>
         {selectedStallCode && (
           <div className="legend-item">
