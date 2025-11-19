@@ -23,6 +23,7 @@ import { Label } from "@/components/ui/label";
 import { Home, Search, Edit, ImageIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { StallSelectionMap } from "@/components/StallSelectionMap";
 
 interface Stall {
   id: string;
@@ -48,6 +49,8 @@ const StallsPage = () => {
   const [stalls, setStalls] = useState<Stall[]>([]);
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedStallFromMap, setSelectedStallFromMap] = useState<string | null>(null);
+  const [mapRefreshTrigger, setMapRefreshTrigger] = useState(0);
 
   useEffect(() => {
     fetchStalls();
@@ -58,9 +61,11 @@ const StallsPage = () => {
       .channel('stalls-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'stalls' }, () => {
         fetchStalls();
+        setMapRefreshTrigger(prev => prev + 1);
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tenants' }, () => {
         fetchTenants();
+        setMapRefreshTrigger(prev => prev + 1);
       })
       .subscribe();
 
@@ -116,7 +121,15 @@ const StallsPage = () => {
 
   const handleEditStall = (stall: Stall) => {
     setSelectedStall(stall);
+    setSelectedStallFromMap(stall.stall_code);
     setIsEditDialogOpen(true);
+  };
+
+  const handleStallSelectFromMap = (stallCode: string, stallData: any) => {
+    const stall = stalls.find(s => s.stall_code === stallCode);
+    if (stall) {
+      handleEditStall(stall);
+    }
   };
 
   const handleUpdateStall = async () => {
@@ -298,6 +311,23 @@ const StallsPage = () => {
                 )}
               </TableBody>
             </Table>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Visual Stall Map</CardTitle>
+            <CardDescription>
+              Click on any stall in the map to view and edit its details
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <StallSelectionMap
+              selectedStallCode={selectedStallFromMap}
+              onStallSelect={handleStallSelectFromMap}
+              refreshTrigger={mapRefreshTrigger}
+              allowOccupiedSelection={true}
+            />
           </CardContent>
         </Card>
 
