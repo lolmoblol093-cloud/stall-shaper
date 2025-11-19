@@ -22,11 +22,12 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Search, Edit, Users, Map } from "lucide-react";
+import { Plus, Search, Edit, Users, Map, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { StallSelectionMap } from "@/components/StallSelectionMap";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 interface Tenant {
   id: string;
@@ -59,6 +60,8 @@ const TenantsPage = () => {
   const [loading, setLoading] = useState(true);
   const [selectedStallFromMap, setSelectedStallFromMap] = useState<{ code: string; data: any } | null>(null);
   const [mapRefreshTrigger, setMapRefreshTrigger] = useState(0);
+  const [tenantToDelete, setTenantToDelete] = useState<Tenant | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   
   const [newTenant, setNewTenant] = useState({
     business_name: "",
@@ -251,6 +254,44 @@ const TenantsPage = () => {
         description: `Tenant status changed to ${newStatus}`,
       });
       
+      fetchTenants();
+      fetchAvailableStalls();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteTenant = async () => {
+    if (!tenantToDelete) return;
+
+    try {
+      // If tenant has a stall, free it up first
+      if (tenantToDelete.stall_number) {
+        await supabase
+          .from("stalls")
+          .update({ occupancy_status: "vacant" })
+          .eq("stall_code", tenantToDelete.stall_number);
+      }
+
+      // Delete the tenant
+      const { error } = await supabase
+        .from("tenants")
+        .delete()
+        .eq("id", tenantToDelete.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Tenant Deleted",
+        description: "Tenant has been successfully deleted",
+      });
+      
+      setIsDeleteDialogOpen(false);
+      setTenantToDelete(null);
       fetchTenants();
       fetchAvailableStalls();
     } catch (error: any) {
@@ -510,6 +551,17 @@ const TenantsPage = () => {
                         >
                           {tenant.status === "active" ? "Deactivate" : "Activate"}
                         </Button>
+                        <Button 
+                          variant="destructive" 
+                          size="sm"
+                          onClick={() => {
+                            setTenantToDelete(tenant);
+                            setIsDeleteDialogOpen(true);
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4 mr-1" />
+                          Delete
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))
@@ -596,6 +648,24 @@ const TenantsPage = () => {
             )}
           </DialogContent>
         </Dialog>
+
+        <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Tenant</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete {tenantToDelete?.business_name}? This action cannot be undone.
+                {tenantToDelete?.stall_number && ` The stall ${tenantToDelete.stall_number} will be marked as vacant.`}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setTenantToDelete(null)}>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDeleteTenant} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </DashboardLayout>
   );
