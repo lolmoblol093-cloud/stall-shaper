@@ -314,22 +314,6 @@ const StallsPage = () => {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Visual Stall Map</CardTitle>
-            <CardDescription>
-              Click on any stall in the map to view and edit its details
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <StallSelectionMap
-              selectedStallCode={selectedStallFromMap}
-              onStallSelect={handleStallSelectFromMap}
-              refreshTrigger={mapRefreshTrigger}
-              allowOccupiedSelection={true}
-            />
-          </CardContent>
-        </Card>
 
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
           <DialogContent className="max-w-md">
