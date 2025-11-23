@@ -337,13 +337,92 @@ export function DirectoryMap({ highlightedStallCode }: DirectoryMapProps) {
         
         <TabsContent value="second">
           <div className="relative w-full max-w-4xl mx-auto">
-            <img 
-              ref={imageRef}
-              src={secondFloorSvg} 
-              alt="Second Floor Map" 
-              className="w-full h-auto cursor-pointer border border-border rounded-lg"
-              onClick={handleImageMapClick}
-            />
+            <div className="relative">
+              <img 
+                ref={imageRef}
+                src={secondFloorSvg} 
+                alt="Second Floor Map" 
+                className="w-full h-auto border border-border rounded-lg"
+              />
+              <svg 
+                className="absolute inset-0 w-full h-auto cursor-pointer pointer-events-none"
+                viewBox="0 0 843 487"
+                preserveAspectRatio="xMidYMid meet"
+              >
+                {/* Render colored overlays for each stall area */}
+                {(() => {
+                  const secondFloorStalls = stallsData.filter(s => s.floor === 'Second Floor');
+                  const areas = [
+                    { coords: [271,7,271,55,321,57,321,262,267,316,26,318,26,271,3,271,3,10], type: 'poly' },
+                    { coords: [324,261,268,318,343,318,360,297], type: 'poly' },
+                    { coords: [436,412,457,391,360,298,344,315], type: 'poly' },
+                    { coords: [551,265,442,265,429,250,408,269,424,283,483,284,522,323,551,323], type: 'poly' },
+                    { coords: [837,395,780,395,747,427,750,473,837,473], type: 'poly' },
+                    { coords: [579,290,804,351], type: 'rect' },
+                    { coords: [617,430,687,475], type: 'rect' },
+                    { coords: [353,54,378,183], type: 'rect' },
+                    { coords: [556,375,572,391], type: 'rect' },
+                    { coords: [572,376,590,393], type: 'rect' },
+                    { coords: [556,409,572,391], type: 'rect' },
+                    { coords: [590,409,572,394], type: 'rect' },
+                    { coords: [612,375,631,391], type: 'rect' },
+                    { coords: [612,409,629,393], type: 'rect' },
+                    { coords: [631,409,649,391], type: 'rect' },
+                    { coords: [631,390,649,375], type: 'rect' },
+                    { coords: [649,408,665,391], type: 'rect' },
+                    { coords: [649,376,665,391], type: 'rect' },
+                    { coords: [667,408,683,393], type: 'rect' },
+                    { coords: [683,375,667,391], type: 'rect' },
+                  ];
+                  
+                  return areas.map((area, index) => {
+                    const stall = secondFloorStalls[index];
+                    const isOccupied = stall?.occupancy_status === 'occupied';
+                    const fillColor = isOccupied 
+                      ? 'rgba(239, 68, 68, 0.3)'  // red for occupied
+                      : 'rgba(34, 197, 94, 0.3)'; // green for available
+                    const strokeColor = isOccupied 
+                      ? 'rgba(239, 68, 68, 0.6)' 
+                      : 'rgba(34, 197, 94, 0.6)';
+                    
+                    if (area.type === 'rect' && area.coords.length >= 4) {
+                      const [x1, y1, x2, y2] = area.coords;
+                      return (
+                        <rect
+                          key={index}
+                          x={x1}
+                          y={y1}
+                          width={x2 - x1}
+                          height={y2 - y1}
+                          fill={fillColor}
+                          stroke={strokeColor}
+                          strokeWidth="2"
+                          className="pointer-events-auto cursor-pointer hover:opacity-80 transition-opacity"
+                          onClick={() => stall && handleBoothClick(stall.stall_code)}
+                        />
+                      );
+                    } else if (area.type === 'poly') {
+                      const points = [];
+                      for (let i = 0; i < area.coords.length; i += 2) {
+                        points.push(`${area.coords[i]},${area.coords[i + 1]}`);
+                      }
+                      return (
+                        <polygon
+                          key={index}
+                          points={points.join(' ')}
+                          fill={fillColor}
+                          stroke={strokeColor}
+                          strokeWidth="2"
+                          className="pointer-events-auto cursor-pointer hover:opacity-80 transition-opacity"
+                          onClick={() => stall && handleBoothClick(stall.stall_code)}
+                        />
+                      );
+                    }
+                    return null;
+                  });
+                })()}
+              </svg>
+            </div>
           </div>
         </TabsContent>
       </Tabs>
