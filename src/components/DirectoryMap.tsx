@@ -360,7 +360,7 @@ export function DirectoryMap({ highlightedStallCode }: DirectoryMapProps) {
                     'c19',           // 2 - poly diagonal
                     'c19',           // 3 - poly middle
                     'c2',            // 4 - poly right side
-                    'c20',           // 5 - large rect
+                    'c15',           // 5 - large rect
                     'c1',            // 6 - rect bottom middle
                     'c19',           // 7 - rect left tall
                     'c3',            // 8 - small rect
