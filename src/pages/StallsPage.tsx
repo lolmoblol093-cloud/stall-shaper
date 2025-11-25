@@ -279,7 +279,7 @@ const StallsPage = () => {
                           )}
                         </div>
                       </TableCell>
-                      <TableCell>{stall.floor}</TableCell>
+                      <TableCell>{stall.floor === 'Ground Floor' || stall.floor === 'ground floor' ? 'Ground Floor' : stall.floor}</TableCell>
                       <TableCell>₱{stall.monthly_rent.toLocaleString()}</TableCell>
                       <TableCell>{stall.floor_size || "-"}</TableCell>
                       <TableCell>
