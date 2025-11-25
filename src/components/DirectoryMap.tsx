@@ -358,7 +358,7 @@ export function DirectoryMap({ highlightedStallCode }: DirectoryMapProps) {
                     'Super Market',  // 0 - large poly on left
                     'c18',           // 1 - poly below Super Market
                     'c17',           // 2 - poly diagonal
-                    'c19',           // 3 - poly middle
+                    'c16',           // 3 - poly middle
                     'c1',            // 4 - poly right side
                     'c15',           // 5 - large rect
                     'c2',            // 6 - rect bottom middle
