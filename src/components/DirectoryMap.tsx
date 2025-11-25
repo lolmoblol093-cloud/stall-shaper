@@ -362,7 +362,7 @@ export function DirectoryMap({ highlightedStallCode }: DirectoryMapProps) {
                     'c2',            // 4 - poly right side
                     'c20',           // 5 - large rect
                     'c1',            // 6 - rect bottom middle
-                    'w',             // 7 - rect left tall
+                    'c19',           // 7 - rect left tall
                     'c3',            // 8 - small rect
                     'c4',            // 9 - small rect
                     'c5',            // 10 - small rect
