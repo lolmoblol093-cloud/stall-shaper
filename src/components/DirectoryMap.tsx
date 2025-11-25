@@ -322,97 +322,16 @@ export function DirectoryMap({ highlightedStallCode }: DirectoryMapProps) {
         </TabsList>
         
         <TabsContent value="ground">
-          <div className="relative w-full max-w-4xl mx-auto">
-            <div className="relative">
-              <div className="directory-map">
-                {booths.map((booth) => (
-                  <Booth
-                    key={booth.id}
-                    id={booth.id}
-                    status={booth.status}
-                    onClick={() => handleBoothClick(booth.id)}
-                    isHighlighted={highlightedStallCode === booth.id}
-                  />
-                ))}
-              </div>
-              <svg 
-                className="absolute inset-0 w-full h-full cursor-pointer pointer-events-none"
-                viewBox="0 0 600 500"
-                preserveAspectRatio="xMidYMid meet"
-              >
-                {/* Render colored overlays for ground floor stalls */}
-                {(() => {
-                  const groundFloorAreas = [
-                    { id: 'Super Market', coords: [189,225,26,226,25,195,10,193,10,16,192,16,193,47,225,48,226,187], type: 'poly' },
-                    { id: 'c19', coords: [248,134,263,48], type: 'rect' },
-                    { id: 'c18', coords: [239,225,189,225,226,187,252,212], type: 'poly' },
-                    { id: 'c17', coords: [240,225,253,213,316,276,303,289], type: 'poly' },
-                    { id: 'c16', coords: [298,180,307,190,382,190,382,230,362,230,334,202,294,203,285,193], type: 'poly' },
-                    { id: 'c15', coords: [401,206,553,250], type: 'rect' },
-                    { id: 'c14', coords: [396,277,409,287], type: 'rect' },
-                    { id: 'c13', coords: [385,277,396,287], type: 'rect' },
-                    { id: 'c12', coords: [386,264,396,276], type: 'rect' },
-                    { id: 'c11', coords: [397,264,409,276], type: 'rect' },
-                    { id: 'c10', coords: [423,264,435,276], type: 'rect' },
-                    { id: 'c9', coords: [435,265,448,276], type: 'rect' },
-                    { id: 'c8', coords: [448,264,459,276], type: 'rect' },
-                    { id: 'c7', coords: [460,264,472,276], type: 'rect' },
-                    { id: 'c6', coords: [424,277,434,288], type: 'rect' },
-                    { id: 'c5', coords: [435,277,448,288], type: 'rect' },
-                    { id: 'c4', coords: [449,276,459,287], type: 'rect' },
-                    { id: 'c3', coords: [459,276,472,288], type: 'rect' },
-                    { id: 'c2', coords: [426,302,474,332], type: 'rect' },
-                    { id: 'c1', coords: [576,278,537,277,515,300,515,330,576,331], type: 'poly' },
-                  ];
-                  
-                  return groundFloorAreas.map((area, index) => {
-                    const stall = stallsData.find(s => s.stall_code === area.id);
-                    const isOccupied = stall?.occupancy_status === 'occupied';
-                    const fillColor = isOccupied 
-                      ? 'rgba(239, 68, 68, 0.3)'  // red for occupied
-                      : 'rgba(34, 197, 94, 0.3)'; // green for available
-                    const strokeColor = isOccupied 
-                      ? 'rgba(239, 68, 68, 0.6)' 
-                      : 'rgba(34, 197, 94, 0.6)';
-                    
-                    if (area.type === 'rect' && area.coords.length >= 4) {
-                      const [x1, y1, x2, y2] = area.coords;
-                      return (
-                        <rect
-                          key={index}
-                          x={x1}
-                          y={y1}
-                          width={x2 - x1}
-                          height={y2 - y1}
-                          fill={fillColor}
-                          stroke={strokeColor}
-                          strokeWidth="2"
-                          className="pointer-events-auto cursor-pointer hover:opacity-80 transition-opacity"
-                          onClick={() => stall && handleBoothClick(stall.stall_code)}
-                        />
-                      );
-                    } else if (area.type === 'poly') {
-                      const points = [];
-                      for (let i = 0; i < area.coords.length; i += 2) {
-                        points.push(`${area.coords[i]},${area.coords[i + 1]}`);
-                      }
-                      return (
-                        <polygon
-                          key={index}
-                          points={points.join(' ')}
-                          fill={fillColor}
-                          stroke={strokeColor}
-                          strokeWidth="2"
-                          className="pointer-events-auto cursor-pointer hover:opacity-80 transition-opacity"
-                          onClick={() => stall && handleBoothClick(stall.stall_code)}
-                        />
-                      );
-                    }
-                    return null;
-                  });
-                })()}
-              </svg>
-            </div>
+          <div className="directory-map">
+            {booths.map((booth) => (
+              <Booth
+                key={booth.id}
+                id={booth.id}
+                status={booth.status}
+                onClick={() => handleBoothClick(booth.id)}
+                isHighlighted={highlightedStallCode === booth.id}
+              />
+            ))}
           </div>
         </TabsContent>
         
