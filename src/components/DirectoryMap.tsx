@@ -269,22 +269,50 @@ export function DirectoryMap({ highlightedStallCode }: DirectoryMapProps) {
       { coords: [667,375,683,391], type: 'rect' },
     ];
     
+    // Map area coordinates to their IDs from the floor plan
+    const stallIdMap = [
+      'Super Market',  // 0 - large poly on left
+      'c18',           // 1 - poly below Super Market
+      'c17',           // 2 - poly diagonal
+      'c16',           // 3 - poly middle
+      'c1',            // 4 - poly right side
+      'c15',           // 5 - large rect
+      'c2',            // 6 - rect bottom middle
+      'c19',           // 7 - rect left tall
+      'c12',           // 8 - small rect
+      'c11',           // 9 - small rect
+      'c13',           // 10 - small rect
+      'c14',           // 11 - small rect
+      'c10',           // 12 - small rect
+      'c6',            // 13 - small rect
+      'c5',            // 14 - small rect
+      'c9',            // 15 - small rect
+      'c4',            // 16 - small rect
+      'c8',            // 17 - small rect
+      'c3',            // 18 - small rect
+      'c7',            // 19 - small rect
+    ];
+    
     for (let i = 0; i < areas.length; i++) {
       const area = areas[i];
       if (area.type === 'rect' && area.coords.length >= 4) {
         const [x1, y1, x2, y2] = area.coords;
         if (scaledX >= x1 && scaledX <= x2 && scaledY >= y1 && scaledY <= y2) {
-          // Found matching area, get stall by index
-          if (secondFloorStalls[i]) {
-            handleBoothClick(secondFloorStalls[i].stall_code);
+          // Found matching area, get stall by ID instead of index
+          const stallId = stallIdMap[i];
+          const stall = secondFloorStalls.find(s => s.stall_code === stallId);
+          if (stall) {
+            handleBoothClick(stall.stall_code);
           }
           return;
         }
       } else if (area.type === 'poly') {
         // Point-in-polygon test
         if (isPointInPolygon(scaledX, scaledY, area.coords)) {
-          if (secondFloorStalls[i]) {
-            handleBoothClick(secondFloorStalls[i].stall_code);
+          const stallId = stallIdMap[i];
+          const stall = secondFloorStalls.find(s => s.stall_code === stallId);
+          if (stall) {
+            handleBoothClick(stall.stall_code);
           }
           return;
         }
@@ -402,7 +430,7 @@ export function DirectoryMap({ highlightedStallCode }: DirectoryMapProps) {
                   
                   const shapes = areas.map((area, index) => {
                     const stallId = stallIdMap[index];
-                    const stall = secondFloorStalls[index];
+                    const stall = secondFloorStalls.find(s => s.stall_code === stallId);
                     const isOccupied = stall?.occupancy_status === 'occupied';
                     const fillColor = isOccupied 
                       ? 'rgba(239, 68, 68, 0.3)'  // red for occupied
