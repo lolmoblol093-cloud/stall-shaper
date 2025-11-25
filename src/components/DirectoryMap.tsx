@@ -359,22 +359,22 @@ export function DirectoryMap({ highlightedStallCode }: DirectoryMapProps) {
                     'c18',           // 1 - poly below Super Market
                     'c19',           // 2 - poly diagonal
                     'c19',           // 3 - poly middle
-                    'c2',            // 4 - poly right side
+                    'c1',            // 4 - poly right side
                     'c15',           // 5 - large rect
-                    'c1',            // 6 - rect bottom middle
+                    'c2',            // 6 - rect bottom middle
                     'c19',           // 7 - rect left tall
-                    'c3',            // 8 - small rect
-                    'c4',            // 9 - small rect
-                    'c5',            // 10 - small rect
-                    'c6',            // 11 - small rect
-                    'c7',            // 12 - small rect
-                    'c8',            // 13 - small rect
-                    'c9',            // 14 - small rect
-                    'c10',           // 15 - small rect
-                    'c11',           // 16 - small rect
-                    'c12',           // 17 - small rect
-                    'c13',           // 18 - small rect
-                    'c14',           // 19 - small rect
+                    'c12',           // 8 - small rect
+                    'c11',           // 9 - small rect
+                    'c13',           // 10 - small rect
+                    'c14',           // 11 - small rect
+                    'c10',           // 12 - small rect
+                    'c6',            // 13 - small rect
+                    'c5',            // 14 - small rect
+                    'c9',            // 15 - small rect
+                    'c4',            // 16 - small rect
+                    'c8',            // 17 - small rect
+                    'c3',            // 18 - small rect
+                    'c7',            // 19 - small rect
                   ];
                   
                   const areas = [
