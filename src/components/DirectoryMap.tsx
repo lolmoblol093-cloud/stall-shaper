@@ -375,7 +375,7 @@ export function DirectoryMap({ highlightedStallCode }: DirectoryMapProps) {
                     { coords: [667,375,683,391], type: 'rect' },
                   ];
                   
-                  return areas.map((area, index) => {
+                  const shapes = areas.map((area, index) => {
                     const stall = secondFloorStalls[index];
                     const isOccupied = stall?.occupancy_status === 'occupied';
                     const fillColor = isOccupied 
@@ -385,41 +385,79 @@ export function DirectoryMap({ highlightedStallCode }: DirectoryMapProps) {
                       ? 'rgba(239, 68, 68, 0.6)' 
                       : 'rgba(34, 197, 94, 0.6)';
                     
+                    let centerX = 0;
+                    let centerY = 0;
+                    
                     if (area.type === 'rect' && area.coords.length >= 4) {
                       const [x1, y1, x2, y2] = area.coords;
+                      centerX = (x1 + x2) / 2;
+                      centerY = (y1 + y2) / 2;
                       return (
-                        <rect
-                          key={index}
-                          x={x1}
-                          y={y1}
-                          width={x2 - x1}
-                          height={y2 - y1}
-                          fill={fillColor}
-                          stroke={strokeColor}
-                          strokeWidth="2"
-                          className="pointer-events-auto cursor-pointer hover:opacity-80 transition-opacity"
-                          onClick={() => stall && handleBoothClick(stall.stall_code)}
-                        />
+                        <g key={index}>
+                          <rect
+                            x={x1}
+                            y={y1}
+                            width={x2 - x1}
+                            height={y2 - y1}
+                            fill={fillColor}
+                            stroke={strokeColor}
+                            strokeWidth="2"
+                            className="pointer-events-auto cursor-pointer hover:opacity-80 transition-opacity"
+                            onClick={() => stall && handleBoothClick(stall.stall_code)}
+                          />
+                          {stall && (
+                            <text
+                              x={centerX}
+                              y={centerY}
+                              textAnchor="middle"
+                              dominantBaseline="middle"
+                              className="pointer-events-none text-xs font-semibold fill-foreground"
+                              style={{ fontSize: '10px' }}
+                            >
+                              {stall.stall_code}
+                            </text>
+                          )}
+                        </g>
                       );
                     } else if (area.type === 'poly') {
+                      // Calculate centroid for polygon
                       const points = [];
                       for (let i = 0; i < area.coords.length; i += 2) {
-                        points.push(`${area.coords[i]},${area.coords[i + 1]}`);
+                        points.push({ x: area.coords[i], y: area.coords[i + 1] });
                       }
+                      centerX = points.reduce((sum, p) => sum + p.x, 0) / points.length;
+                      centerY = points.reduce((sum, p) => sum + p.y, 0) / points.length;
+                      
+                      const pointsStr = points.map(p => `${p.x},${p.y}`).join(' ');
                       return (
-                        <polygon
-                          key={index}
-                          points={points.join(' ')}
-                          fill={fillColor}
-                          stroke={strokeColor}
-                          strokeWidth="2"
-                          className="pointer-events-auto cursor-pointer hover:opacity-80 transition-opacity"
-                          onClick={() => stall && handleBoothClick(stall.stall_code)}
-                        />
+                        <g key={index}>
+                          <polygon
+                            points={pointsStr}
+                            fill={fillColor}
+                            stroke={strokeColor}
+                            strokeWidth="2"
+                            className="pointer-events-auto cursor-pointer hover:opacity-80 transition-opacity"
+                            onClick={() => stall && handleBoothClick(stall.stall_code)}
+                          />
+                          {stall && (
+                            <text
+                              x={centerX}
+                              y={centerY}
+                              textAnchor="middle"
+                              dominantBaseline="middle"
+                              className="pointer-events-none text-sm font-semibold fill-foreground"
+                              style={{ fontSize: '12px' }}
+                            >
+                              {stall.stall_code}
+                            </text>
+                          )}
+                        </g>
                       );
                     }
                     return null;
                   });
+                  
+                  return shapes;
                 })()}
               </svg>
             </div>
