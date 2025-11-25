@@ -352,6 +352,31 @@ export function DirectoryMap({ highlightedStallCode }: DirectoryMapProps) {
                 {/* Render colored overlays for each stall area */}
                 {(() => {
                   const secondFloorStalls = stallsData.filter(s => s.floor === 'Second Floor');
+                  
+                  // Map area coordinates to their IDs from the floor plan
+                  const stallIdMap = [
+                    'Super Market',  // 0 - large poly on left
+                    'c18',           // 1 - poly below Super Market
+                    'c19',           // 2 - poly diagonal
+                    'c19',           // 3 - poly middle
+                    'c2',            // 4 - poly right side
+                    'c20',           // 5 - large rect
+                    'c1',            // 6 - rect bottom middle
+                    'w',             // 7 - rect left tall
+                    'c3',            // 8 - small rect
+                    'c4',            // 9 - small rect
+                    'c5',            // 10 - small rect
+                    'c6',            // 11 - small rect
+                    'c7',            // 12 - small rect
+                    'c8',            // 13 - small rect
+                    'c9',            // 14 - small rect
+                    'c10',           // 15 - small rect
+                    'c11',           // 16 - small rect
+                    'c12',           // 17 - small rect
+                    'c13',           // 18 - small rect
+                    'c14',           // 19 - small rect
+                  ];
+                  
                   const areas = [
                     { coords: [271,7,271,55,321,57,321,262,267,316,26,318,26,271,3,271,3,10], type: 'poly' },
                     { coords: [324,261,268,318,343,318,360,297], type: 'poly' },
@@ -376,6 +401,7 @@ export function DirectoryMap({ highlightedStallCode }: DirectoryMapProps) {
                   ];
                   
                   const shapes = areas.map((area, index) => {
+                    const stallId = stallIdMap[index];
                     const stall = secondFloorStalls[index];
                     const isOccupied = stall?.occupancy_status === 'occupied';
                     const fillColor = isOccupied 
@@ -405,7 +431,7 @@ export function DirectoryMap({ highlightedStallCode }: DirectoryMapProps) {
                             className="pointer-events-auto cursor-pointer hover:opacity-80 transition-opacity"
                             onClick={() => stall && handleBoothClick(stall.stall_code)}
                           />
-                          {stall && (
+                          {stallId && (
                             <text
                               x={centerX}
                               y={centerY}
@@ -414,7 +440,7 @@ export function DirectoryMap({ highlightedStallCode }: DirectoryMapProps) {
                               className="pointer-events-none text-xs font-semibold fill-foreground"
                               style={{ fontSize: '10px' }}
                             >
-                              {stall.stall_code}
+                              {stallId}
                             </text>
                           )}
                         </g>
@@ -439,7 +465,7 @@ export function DirectoryMap({ highlightedStallCode }: DirectoryMapProps) {
                             className="pointer-events-auto cursor-pointer hover:opacity-80 transition-opacity"
                             onClick={() => stall && handleBoothClick(stall.stall_code)}
                           />
-                          {stall && (
+                          {stallId && (
                             <text
                               x={centerX}
                               y={centerY}
@@ -448,7 +474,7 @@ export function DirectoryMap({ highlightedStallCode }: DirectoryMapProps) {
                               className="pointer-events-none text-sm font-semibold fill-foreground"
                               style={{ fontSize: '12px' }}
                             >
-                              {stall.stall_code}
+                              {stallId}
                             </text>
                           )}
                         </g>
