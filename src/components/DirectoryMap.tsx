@@ -357,7 +357,7 @@ export function DirectoryMap({ highlightedStallCode }: DirectoryMapProps) {
                   const stallIdMap = [
                     'Super Market',  // 0 - large poly on left
                     'c18',           // 1 - poly below Super Market
-                    'c19',           // 2 - poly diagonal
+                    'c17',           // 2 - poly diagonal
                     'c19',           // 3 - poly middle
                     'c1',            // 4 - poly right side
                     'c15',           // 5 - large rect
