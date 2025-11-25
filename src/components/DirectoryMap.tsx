@@ -421,20 +421,6 @@ export function DirectoryMap({ highlightedStallCode }: DirectoryMapProps) {
                     return null;
                   });
                 })()}
-                
-                {/* Supermarket label */}
-                <text
-                  x="118"
-                  y="121"
-                  fill="hsl(var(--foreground))"
-                  fontSize="14"
-                  fontWeight="600"
-                  textAnchor="middle"
-                  dominantBaseline="middle"
-                  className="pointer-events-none select-none"
-                >
-                  Super Market
-                </text>
               </svg>
             </div>
           </div>
