@@ -314,6 +314,24 @@ const StallsPage = () => {
           </CardContent>
         </Card>
 
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <Home className="h-5 w-5" />
+              <span>Visual Stall Selection</span>
+            </CardTitle>
+            <CardDescription>
+              Click on a stall in the map to view and edit its details
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <StallSelectionMap
+              onStallSelect={handleStallSelectFromMap}
+              selectedStallCode={selectedStallFromMap}
+              refreshTrigger={mapRefreshTrigger}
+            />
+          </CardContent>
+        </Card>
 
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
           <DialogContent className="max-w-md">
