@@ -247,26 +247,26 @@ export function DirectoryMap({ highlightedStallCode }: DirectoryMapProps) {
     
     // Check each area coordinate to see if click is inside
     const areas = [
-      { coords: [271,7,271,55,321,57,321,262,267,316,26,318,26,271,3,271,3,10], type: 'poly' },
-      { coords: [324,261,268,318,343,318,360,297], type: 'poly' },
-      { coords: [436,412,457,391,360,298,344,315], type: 'poly' },
-      { coords: [551,265,442,265,429,250,408,269,424,283,483,284,522,323,551,323], type: 'poly' },
-      { coords: [837,395,780,395,747,427,750,473,837,473], type: 'poly' },
-      { coords: [579,290,804,351], type: 'rect' },
-      { coords: [617,430,687,475], type: 'rect' },
-      { coords: [353,54,378,183], type: 'rect' },
-      { coords: [556,375,572,391], type: 'rect' },
-      { coords: [572,376,590,393], type: 'rect' },
-      { coords: [556,391,572,409], type: 'rect' },
-      { coords: [572,394,590,409], type: 'rect' },
-      { coords: [612,375,631,391], type: 'rect' },
-      { coords: [612,393,629,409], type: 'rect' },
-      { coords: [631,391,649,409], type: 'rect' },
-      { coords: [631,375,649,390], type: 'rect' },
-      { coords: [649,391,665,408], type: 'rect' },
-      { coords: [649,376,665,391], type: 'rect' },
-      { coords: [667,393,683,408], type: 'rect' },
-      { coords: [667,375,683,391], type: 'rect' },
+      { id: 'Super Market', coords: [189,225,26,226,25,195,10,193,10,16,192,16,193,47,225,48,226,187], type: 'poly' },
+      { id: 'c19', coords: [248,134,263,48], type: 'rect' },
+      { id: 'c18', coords: [239,225,189,225,226,187,252,212], type: 'poly' },
+      { id: 'c17', coords: [240,225,253,213,316,276,303,289], type: 'poly' },
+      { id: 'c16', coords: [298,180,307,190,382,190,382,230,362,230,334,202,294,203,285,193], type: 'poly' },
+      { id: 'c15', coords: [401,206,553,250], type: 'rect' },
+      { id: 'c14', coords: [409,287,396,277], type: 'rect' },
+      { id: 'c13', coords: [396,287,385,277], type: 'rect' },
+      { id: 'c12', coords: [396,276,386,264], type: 'rect' },
+      { id: 'c11', coords: [397,276,409,264], type: 'rect' },
+      { id: 'c10', coords: [435,276,423,264], type: 'rect' },
+      { id: 'c9', coords: [435,276,448,265], type: 'rect' },
+      { id: 'c8', coords: [459,276,448,264], type: 'rect' },
+      { id: 'c7', coords: [472,276,460,264], type: 'rect' },
+      { id: 'c6', coords: [424,288,434,277], type: 'rect' },
+      { id: 'c5', coords: [435,288,448,277], type: 'rect' },
+      { id: 'c4', coords: [459,287,449,276], type: 'rect' },
+      { id: 'c3', coords: [472,288,459,276], type: 'rect' },
+      { id: 'c2', coords: [474,332,426,302], type: 'rect' },
+      { id: 'c1', coords: [576,278,537,277,515,300,515,330,576,331], type: 'poly' },
     ];
     
     for (let i = 0; i < areas.length; i++) {
@@ -274,17 +274,19 @@ export function DirectoryMap({ highlightedStallCode }: DirectoryMapProps) {
       if (area.type === 'rect' && area.coords.length >= 4) {
         const [x1, y1, x2, y2] = area.coords;
         if (scaledX >= x1 && scaledX <= x2 && scaledY >= y1 && scaledY <= y2) {
-          // Found matching area, get stall by index
-          if (secondFloorStalls[i]) {
-            handleBoothClick(secondFloorStalls[i].stall_code);
+          // Found matching area, get stall by ID
+          const stall = secondFloorStalls.find(s => s.stall_code === area.id);
+          if (stall) {
+            handleBoothClick(stall.stall_code);
           }
           return;
         }
       } else if (area.type === 'poly') {
         // Point-in-polygon test
         if (isPointInPolygon(scaledX, scaledY, area.coords)) {
-          if (secondFloorStalls[i]) {
-            handleBoothClick(secondFloorStalls[i].stall_code);
+          const stall = secondFloorStalls.find(s => s.stall_code === area.id);
+          if (stall) {
+            handleBoothClick(stall.stall_code);
           }
           return;
         }
@@ -353,30 +355,30 @@ export function DirectoryMap({ highlightedStallCode }: DirectoryMapProps) {
                 {(() => {
                   const secondFloorStalls = stallsData.filter(s => s.floor === 'Second Floor');
                   const areas = [
-                    { coords: [271,7,271,55,321,57,321,262,267,316,26,318,26,271,3,271,3,10], type: 'poly' },
-                    { coords: [324,261,268,318,343,318,360,297], type: 'poly' },
-                    { coords: [436,412,457,391,360,298,344,315], type: 'poly' },
-                    { coords: [551,265,442,265,429,250,408,269,424,283,483,284,522,323,551,323], type: 'poly' },
-                    { coords: [837,395,780,395,747,427,750,473,837,473], type: 'poly' },
-                    { coords: [579,290,804,351], type: 'rect' },
-                    { coords: [617,430,687,475], type: 'rect' },
-                    { coords: [353,54,378,183], type: 'rect' },
-                    { coords: [556,375,572,391], type: 'rect' },
-                    { coords: [572,376,590,393], type: 'rect' },
-                    { coords: [556,391,572,409], type: 'rect' },
-                    { coords: [572,394,590,409], type: 'rect' },
-                    { coords: [612,375,631,391], type: 'rect' },
-                    { coords: [612,393,629,409], type: 'rect' },
-                    { coords: [631,391,649,409], type: 'rect' },
-                    { coords: [631,375,649,390], type: 'rect' },
-                    { coords: [649,391,665,408], type: 'rect' },
-                    { coords: [649,376,665,391], type: 'rect' },
-                    { coords: [667,393,683,408], type: 'rect' },
-                    { coords: [667,375,683,391], type: 'rect' },
+                    { id: 'Super Market', coords: [189,225,26,226,25,195,10,193,10,16,192,16,193,47,225,48,226,187], type: 'poly' },
+                    { id: 'c19', coords: [248,134,263,48], type: 'rect' },
+                    { id: 'c18', coords: [239,225,189,225,226,187,252,212], type: 'poly' },
+                    { id: 'c17', coords: [240,225,253,213,316,276,303,289], type: 'poly' },
+                    { id: 'c16', coords: [298,180,307,190,382,190,382,230,362,230,334,202,294,203,285,193], type: 'poly' },
+                    { id: 'c15', coords: [401,206,553,250], type: 'rect' },
+                    { id: 'c14', coords: [409,287,396,277], type: 'rect' },
+                    { id: 'c13', coords: [396,287,385,277], type: 'rect' },
+                    { id: 'c12', coords: [396,276,386,264], type: 'rect' },
+                    { id: 'c11', coords: [397,276,409,264], type: 'rect' },
+                    { id: 'c10', coords: [435,276,423,264], type: 'rect' },
+                    { id: 'c9', coords: [435,276,448,265], type: 'rect' },
+                    { id: 'c8', coords: [459,276,448,264], type: 'rect' },
+                    { id: 'c7', coords: [472,276,460,264], type: 'rect' },
+                    { id: 'c6', coords: [424,288,434,277], type: 'rect' },
+                    { id: 'c5', coords: [435,288,448,277], type: 'rect' },
+                    { id: 'c4', coords: [459,287,449,276], type: 'rect' },
+                    { id: 'c3', coords: [472,288,459,276], type: 'rect' },
+                    { id: 'c2', coords: [474,332,426,302], type: 'rect' },
+                    { id: 'c1', coords: [576,278,537,277,515,300,515,330,576,331], type: 'poly' },
                   ];
                   
                   return areas.map((area, index) => {
-                    const stall = secondFloorStalls[index];
+                    const stall = secondFloorStalls.find(s => s.stall_code === area.id);
                     const isOccupied = stall?.occupancy_status === 'occupied';
                     const fillColor = isOccupied 
                       ? 'rgba(239, 68, 68, 0.3)'  // red for occupied
@@ -389,7 +391,7 @@ export function DirectoryMap({ highlightedStallCode }: DirectoryMapProps) {
                       const [x1, y1, x2, y2] = area.coords;
                       return (
                         <rect
-                          key={index}
+                          key={area.id}
                           x={x1}
                           y={y1}
                           width={x2 - x1}
@@ -408,7 +410,7 @@ export function DirectoryMap({ highlightedStallCode }: DirectoryMapProps) {
                       }
                       return (
                         <polygon
-                          key={index}
+                          key={area.id}
                           points={points.join(' ')}
                           fill={fillColor}
                           stroke={strokeColor}
