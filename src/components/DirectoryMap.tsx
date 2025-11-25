@@ -424,8 +424,8 @@ export function DirectoryMap({ highlightedStallCode }: DirectoryMapProps) {
                 
                 {/* Supermarket label */}
                 <text
-                  x="118"
-                  y="110"
+                  x="122"
+                  y="128"
                   fill="hsl(var(--foreground))"
                   fontSize="14"
                   fontWeight="600"
