@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import secondFloorSvg from '@/assets/second-floor.svg';
+import thirdFloorSvg from '@/assets/third-floor.svg';
 
 interface Booth {
   id: string;
@@ -127,7 +128,7 @@ interface StallSelectionMapProps {
 export function StallSelectionMap({ selectedStallCode, onStallSelect, refreshTrigger, allowOccupiedSelection = false }: StallSelectionMapProps) {
   const [booths, setBooths] = useState(initialBoothData);
   const [stallsData, setStallsData] = useState<StallData[]>([]);
-  const [currentFloor, setCurrentFloor] = useState<'ground' | 'second'>('ground');
+  const [currentFloor, setCurrentFloor] = useState<'ground' | 'second' | 'third'>('ground');
   const imageRef = useRef<HTMLImageElement>(null);
 
   useEffect(() => {
@@ -216,6 +217,7 @@ export function StallSelectionMap({ selectedStallCode, onStallSelect, refreshTri
     
     // Find matching stall from database for second floor
     const secondFloorStalls = stallsData.filter(s => s.floor === 'Second Floor');
+    const thirdFloorStalls = stallsData.filter(s => s.floor === 'Third Floor');
     
     // Check each area coordinate to see if click is inside
     const areas = [
@@ -262,6 +264,99 @@ export function StallSelectionMap({ selectedStallCode, onStallSelect, refreshTri
         }
       }
     }
+    
+    // Third floor click handling
+    if (currentFloor === 'third') {
+      const thirdFloorAreas = [
+        { coords: [757,421,793,386,852,386,852,468,757,468], type: 'poly' },
+        { coords: [696,468,620,424], type: 'rect' },
+        { coords: [757,341,817,276], type: 'rect' },
+        { coords: [693,341,755,278], type: 'rect' },
+        { coords: [631,342,692,276], type: 'rect' },
+        { coords: [629,343,586,276], type: 'rect' },
+        { coords: [748,402,729,384], type: 'rect' },
+        { coords: [748,367,729,385], type: 'rect' },
+        { coords: [713,403,729,385], type: 'rect' },
+        { coords: [729,384,713,368], type: 'rect' },
+        { coords: [692,403,673,385], type: 'rect' },
+        { coords: [675,384,692,367], type: 'rect' },
+        { coords: [657,403,673,385], type: 'rect' },
+        { coords: [657,367,675,385], type: 'rect' },
+        { coords: [639,402,657,385], type: 'rect' },
+        { coords: [639,367,657,384], type: 'rect' },
+        { coords: [623,404,639,385], type: 'rect' },
+        { coords: [639,384,622,368], type: 'rect' },
+        { coords: [595,403,578,387], type: 'rect' },
+        { coords: [578,384,595,367], type: 'rect' },
+        { coords: [561,404,577,386], type: 'rect' },
+        { coords: [577,386,560,369], type: 'rect' },
+        { coords: [554,276,533,275,533,252,437,252,412,226,392,244,418,271,495,271,539,315,554,314], type: 'poly' },
+        { coords: [440,412,334,309,324,308,325,259,462,392], type: 'poly' },
+        { coords: [324,309,265,258], type: 'rect' },
+        { coords: [263,285,238,256], type: 'rect' },
+        { coords: [236,285,209,256], type: 'rect' },
+        { coords: [209,286,183,257], type: 'rect' },
+        { coords: [182,285,156,257], type: 'rect' },
+        { coords: [154,286,129,257], type: 'rect' },
+        { coords: [339,177,374,32], type: 'rect' },
+        { coords: [245,60,215,9], type: 'rect' },
+        { coords: [213,9,174,60], type: 'rect' },
+        { coords: [174,62,135,8], type: 'rect' },
+        { coords: [135,61,95,8], type: 'rect' },
+        { coords: [94,62,57,9], type: 'rect' },
+        { coords: [56,78,5,8], type: 'rect' },
+        { coords: [56,117,3,78], type: 'rect' },
+        { coords: [56,158,3,118], type: 'rect' },
+        { coords: [56,196,3,159], type: 'rect' },
+        { coords: [56,237,3,197], type: 'rect' },
+        { coords: [280,232,262,214], type: 'rect' },
+        { coords: [247,232,262,215], type: 'rect' },
+        { coords: [262,213,280,197], type: 'rect' },
+        { coords: [262,214,245,197], type: 'rect' },
+        { coords: [206,233,189,216], type: 'rect' },
+        { coords: [207,198,189,215], type: 'rect' },
+        { coords: [173,232,189,216], type: 'rect' },
+        { coords: [189,215,173,198], type: 'rect' },
+        { coords: [132,232,115,214], type: 'rect' },
+        { coords: [115,214,132,199], type: 'rect' },
+        { coords: [98,234,115,216], type: 'rect' },
+        { coords: [115,215,98,198], type: 'rect' },
+      ];
+      
+      const thirdFloorStallIds = [
+        'd1', 'd2', 'd3', 'd4', 'd5', 'd6', 'd7', 'd8', 'd9', 'd10',
+        'd11', 'd12', 'd13', 'd14', 'd15', 'd16', 'd17', 'd18', 'd19', 'd20',
+        'd21', 'd22', 'd23', 'd24', 'd25', 'd26', 'd27', 'd28', 'd29', 'd30',
+        'd31', 'd32', 'd33', 'd34', 'd35', 'd36', 'd37', 'd38', 'd39', 'd40',
+        'd41', 'd42', 'd43', 'd44', 'd45', 'd46', 'd47', 'd48', 'd49', 'd50',
+        'd51', 'd52', 'd53'
+      ];
+      
+      for (let i = 0; i < thirdFloorAreas.length; i++) {
+        const area = thirdFloorAreas[i];
+        if (area.type === 'rect' && area.coords.length >= 4) {
+          const [x1, y1, x2, y2] = area.coords;
+          if (scaledX >= x1 && scaledX <= x2 && scaledY >= y1 && scaledY <= y2) {
+            const stallId = thirdFloorStallIds[i];
+            const stall = thirdFloorStalls.find(s => s.stall_code === stallId);
+            if (stall) {
+              handleBoothClick(stall.stall_code);
+            }
+            return;
+          }
+        } else if (area.type === 'poly') {
+          if (isPointInPolygon(scaledX, scaledY, area.coords)) {
+            const stallId = thirdFloorStallIds[i];
+            const stall = thirdFloorStalls.find(s => s.stall_code === stallId);
+            if (stall) {
+              handleBoothClick(stall.stall_code);
+            }
+            return;
+          }
+        }
+      }
+      return;
+    }
   };
 
   const isPointInPolygon = (x: number, y: number, coords: number[]): boolean => {
@@ -294,10 +389,11 @@ export function StallSelectionMap({ selectedStallCode, onStallSelect, refreshTri
         </p>
       </div>
       
-      <Tabs value={currentFloor} onValueChange={(v) => setCurrentFloor(v as 'ground' | 'second')} className="w-full">
-        <TabsList className="grid w-full grid-cols-2 mb-4">
+      <Tabs value={currentFloor} onValueChange={(v) => setCurrentFloor(v as 'ground' | 'second' | 'third')} className="w-full">
+        <TabsList className="grid w-full grid-cols-3 mb-4">
           <TabsTrigger value="ground">Ground Floor</TabsTrigger>
           <TabsTrigger value="second">Second Floor</TabsTrigger>
+          <TabsTrigger value="third">Third Floor</TabsTrigger>
         </TabsList>
         
         <TabsContent value="ground">
@@ -453,6 +549,183 @@ export function StallSelectionMap({ selectedStallCode, onStallSelect, refreshTri
                               dominantBaseline="middle"
                               className="pointer-events-none text-xs font-semibold fill-foreground"
                               style={{ fontSize: '12px' }}
+                            >
+                              {stallId}
+                            </text>
+                          )}
+                        </g>
+                      );
+                    }
+                    return null;
+                  });
+                  
+                  return shapes;
+                })()}
+              </svg>
+            </div>
+          </div>
+        </TabsContent>
+        
+        <TabsContent value="third">
+          <div className="relative w-full max-w-4xl mx-auto">
+            <div className="relative">
+              <img 
+                ref={imageRef}
+                src={thirdFloorSvg} 
+                alt="Third Floor Map" 
+                className="w-full h-auto border border-border rounded-lg"
+              />
+              <svg 
+                className="absolute inset-0 w-full h-auto cursor-pointer pointer-events-none"
+                viewBox="0 0 858 482"
+                preserveAspectRatio="xMidYMid meet"
+              >
+                {(() => {
+                  const thirdFloorStalls = stallsData.filter(s => s.floor === 'Third Floor');
+                  
+                  const thirdFloorStallIds = [
+                    'd1', 'd2', 'd3', 'd4', 'd5', 'd6', 'd7', 'd8', 'd9', 'd10',
+                    'd11', 'd12', 'd13', 'd14', 'd15', 'd16', 'd17', 'd18', 'd19', 'd20',
+                    'd21', 'd22', 'd23', 'd24', 'd25', 'd26', 'd27', 'd28', 'd29', 'd30',
+                    'd31', 'd32', 'd33', 'd34', 'd35', 'd36', 'd37', 'd38', 'd39', 'd40',
+                    'd41', 'd42', 'd43', 'd44', 'd45', 'd46', 'd47', 'd48', 'd49', 'd50',
+                    'd51', 'd52', 'd53'
+                  ];
+                  
+                  const thirdFloorAreas = [
+                    { coords: [757,421,793,386,852,386,852,468,757,468], type: 'poly' },
+                    { coords: [696,468,620,424], type: 'rect' },
+                    { coords: [757,341,817,276], type: 'rect' },
+                    { coords: [693,341,755,278], type: 'rect' },
+                    { coords: [631,342,692,276], type: 'rect' },
+                    { coords: [629,343,586,276], type: 'rect' },
+                    { coords: [748,402,729,384], type: 'rect' },
+                    { coords: [748,367,729,385], type: 'rect' },
+                    { coords: [713,403,729,385], type: 'rect' },
+                    { coords: [729,384,713,368], type: 'rect' },
+                    { coords: [692,403,673,385], type: 'rect' },
+                    { coords: [675,384,692,367], type: 'rect' },
+                    { coords: [657,403,673,385], type: 'rect' },
+                    { coords: [657,367,675,385], type: 'rect' },
+                    { coords: [639,402,657,385], type: 'rect' },
+                    { coords: [639,367,657,384], type: 'rect' },
+                    { coords: [623,404,639,385], type: 'rect' },
+                    { coords: [639,384,622,368], type: 'rect' },
+                    { coords: [595,403,578,387], type: 'rect' },
+                    { coords: [578,384,595,367], type: 'rect' },
+                    { coords: [561,404,577,386], type: 'rect' },
+                    { coords: [577,386,560,369], type: 'rect' },
+                    { coords: [554,276,533,275,533,252,437,252,412,226,392,244,418,271,495,271,539,315,554,314], type: 'poly' },
+                    { coords: [440,412,334,309,324,308,325,259,462,392], type: 'poly' },
+                    { coords: [324,309,265,258], type: 'rect' },
+                    { coords: [263,285,238,256], type: 'rect' },
+                    { coords: [236,285,209,256], type: 'rect' },
+                    { coords: [209,286,183,257], type: 'rect' },
+                    { coords: [182,285,156,257], type: 'rect' },
+                    { coords: [154,286,129,257], type: 'rect' },
+                    { coords: [339,177,374,32], type: 'rect' },
+                    { coords: [245,60,215,9], type: 'rect' },
+                    { coords: [213,9,174,60], type: 'rect' },
+                    { coords: [174,62,135,8], type: 'rect' },
+                    { coords: [135,61,95,8], type: 'rect' },
+                    { coords: [94,62,57,9], type: 'rect' },
+                    { coords: [56,78,5,8], type: 'rect' },
+                    { coords: [56,117,3,78], type: 'rect' },
+                    { coords: [56,158,3,118], type: 'rect' },
+                    { coords: [56,196,3,159], type: 'rect' },
+                    { coords: [56,237,3,197], type: 'rect' },
+                    { coords: [280,232,262,214], type: 'rect' },
+                    { coords: [247,232,262,215], type: 'rect' },
+                    { coords: [262,213,280,197], type: 'rect' },
+                    { coords: [262,214,245,197], type: 'rect' },
+                    { coords: [206,233,189,216], type: 'rect' },
+                    { coords: [207,198,189,215], type: 'rect' },
+                    { coords: [173,232,189,216], type: 'rect' },
+                    { coords: [189,215,173,198], type: 'rect' },
+                    { coords: [132,232,115,214], type: 'rect' },
+                    { coords: [115,214,132,199], type: 'rect' },
+                    { coords: [98,234,115,216], type: 'rect' },
+                    { coords: [115,215,98,198], type: 'rect' },
+                  ];
+                  
+                  const shapes = thirdFloorAreas.map((area, index) => {
+                    const stallId = thirdFloorStallIds[index];
+                    const stall = thirdFloorStalls.find(s => s.stall_code === stallId);
+                    const isOccupied = stall?.occupancy_status === 'occupied';
+                    const isSelected = selectedStallCode === stallId;
+                    const fillColor = isSelected
+                      ? 'rgba(59, 130, 246, 0.5)'
+                      : isOccupied 
+                        ? 'rgba(239, 68, 68, 0.3)'
+                        : 'rgba(34, 197, 94, 0.3)';
+                    const strokeColor = isSelected
+                      ? 'rgba(59, 130, 246, 0.8)'
+                      : isOccupied 
+                        ? 'rgba(239, 68, 68, 0.6)' 
+                        : 'rgba(34, 197, 94, 0.6)';
+                    
+                    let centerX = 0;
+                    let centerY = 0;
+                    
+                    if (area.type === 'rect' && area.coords.length >= 4) {
+                      const [x1, y1, x2, y2] = area.coords;
+                      centerX = (x1 + x2) / 2;
+                      centerY = (y1 + y2) / 2;
+                      
+                      return (
+                        <g key={index}>
+                          <rect
+                            x={x1}
+                            y={y1}
+                            width={x2 - x1}
+                            height={y2 - y1}
+                            fill={fillColor}
+                            stroke={strokeColor}
+                            strokeWidth="2"
+                            className="pointer-events-auto cursor-pointer hover:opacity-80 transition-opacity"
+                            onClick={() => stall && handleBoothClick(stall.stall_code)}
+                          />
+                          {stallId && (
+                            <text
+                              x={centerX}
+                              y={centerY}
+                              textAnchor="middle"
+                              dominantBaseline="middle"
+                              className="pointer-events-none text-xs font-semibold fill-foreground"
+                              style={{ fontSize: '8px' }}
+                            >
+                              {stallId}
+                            </text>
+                          )}
+                        </g>
+                      );
+                    } else if (area.type === 'poly') {
+                      const points = [];
+                      for (let i = 0; i < area.coords.length; i += 2) {
+                        points.push({ x: area.coords[i], y: area.coords[i + 1] });
+                      }
+                      centerX = points.reduce((sum, p) => sum + p.x, 0) / points.length;
+                      centerY = points.reduce((sum, p) => sum + p.y, 0) / points.length;
+                      
+                      const pointsStr = points.map(p => `${p.x},${p.y}`).join(' ');
+                      return (
+                        <g key={index}>
+                          <polygon
+                            points={pointsStr}
+                            fill={fillColor}
+                            stroke={strokeColor}
+                            strokeWidth="2"
+                            className="pointer-events-auto cursor-pointer hover:opacity-80 transition-opacity"
+                            onClick={() => stall && handleBoothClick(stall.stall_code)}
+                          />
+                          {stallId && (
+                            <text
+                              x={centerX}
+                              y={centerY}
+                              textAnchor="middle"
+                              dominantBaseline="middle"
+                              className="pointer-events-none text-xs font-semibold fill-foreground"
+                              style={{ fontSize: '10px' }}
                             >
                               {stallId}
                             </text>
