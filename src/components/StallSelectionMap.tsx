@@ -329,7 +329,7 @@ export function StallSelectionMap({ selectedStallCode, onStallSelect, refreshTri
         'd21', 'd23', 'd24', 'd25', 'd26', 'd27', 'd28', 'd29', 'd30',
         'd31', 'd32', 'd33', 'd34', 'd35', 'd36', 'd37', 'd38', 'd39', 'd40',
         'd41', 'd42', 'd43', 'd44', 'd45', 'd46', 'd47', 'd48', 'd49', 'd50',
-        'd51', 'd52', 'd53'
+        'd51', 'd52', 'd53', 'd54'
       ];
       
       for (let i = 0; i < thirdFloorAreas.length; i++) {
@@ -589,7 +589,7 @@ export function StallSelectionMap({ selectedStallCode, onStallSelect, refreshTri
                     'd21', 'd23', 'd24', 'd25', 'd26', 'd27', 'd28', 'd29', 'd30',
                     'd31', 'd32', 'd33', 'd34', 'd35', 'd36', 'd37', 'd38', 'd39', 'd40',
                     'd41', 'd42', 'd43', 'd44', 'd45', 'd46', 'd47', 'd48', 'd49', 'd50',
-                    'd51', 'd52', 'd53'
+                    'd51', 'd52', 'd53', 'd54'
                   ];
                   
                   const thirdFloorAreas = [
@@ -646,6 +646,7 @@ export function StallSelectionMap({ selectedStallCode, onStallSelect, refreshTri
                     { coords: [115,214,132,199], type: 'rect' },
                     { coords: [98,234,115,216], type: 'rect' },
                     { coords: [115,215,98,198], type: 'rect' },
+                    { coords: [577,386,560,369], type: 'rect' },
                   ];
                   
                   const shapes = thirdFloorAreas.map((area, index) => {
