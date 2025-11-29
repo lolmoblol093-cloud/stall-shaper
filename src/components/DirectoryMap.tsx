@@ -547,7 +547,7 @@ export function DirectoryMap({ highlightedStallCode }: DirectoryMapProps) {
                     { coords: [184,303,211,321], type: 'rect' },
                     { coords: [209,302,238,320], type: 'rect' },
                     { coords: [240,302,265,322], type: 'rect' },
-                    { coords: [268,301,312,303,312,323,290,323,264,323,264,301], type: 'poly' },
+                    { coords: [268,301,312,303,290,323,264,323], type: 'poly' },
                     { coords: [323,209,323,261,342,241,339,209], type: 'poly' },
                     { coords: [560,315,808,356], type: 'rect' },
                     { coords: [748,397,846,479], type: 'rect' },
