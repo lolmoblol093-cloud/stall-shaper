@@ -11,6 +11,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import groundFloorSvg from '@/assets/ground-floor.svg';
 import secondFloorSvg from '@/assets/second-floor.svg';
 import thirdFloorSvg from '@/assets/third-floor.svg';
 
@@ -446,16 +447,219 @@ export function DirectoryMap({ highlightedStallCode }: DirectoryMapProps) {
         </TabsList>
         
         <TabsContent value="ground">
-          <div className="directory-map">
-            {booths.map((booth) => (
-              <Booth
-                key={booth.id}
-                id={booth.id}
-                status={booth.status}
-                onClick={() => handleBoothClick(booth.id)}
-                isHighlighted={highlightedStallCode === booth.id}
+          <div className="relative w-full max-w-4xl mx-auto">
+            <div className="relative">
+              <img 
+                src={groundFloorSvg} 
+                alt="Ground Floor Map" 
+                className="w-full h-auto border border-border rounded-lg"
               />
-            ))}
+              <svg 
+                className="absolute inset-0 w-full h-auto cursor-pointer pointer-events-none"
+                viewBox="0 0 850 491"
+                preserveAspectRatio="xMidYMid meet"
+              >
+                {/* Render colored overlays for each stall area */}
+                {(() => {
+                  const groundFloorStalls = stallsData.filter(s => s.floor === 'Ground Floor');
+                  
+                  const groundFloorStallIds = [
+                    'b1', 'b2', 'b3', 'b4', 'b5', 'b6', 'b7', 'b8', 'b9', 'b10',
+                    'b12', 'b13', 'b14', 'b15', 'b16', 'b17', 'b18', 'b19', 'b20', 'b21',
+                    'b22', 'b23', 'b24', 'b25', 'b26', 'b27', 'b28', 'b29', 'b30', 'b31',
+                    'b32', 'b33', 'b34', 'b35', 'b36', 'b37', 'b38', 'b39', 'b40', 'b41',
+                    'b42', 'b43', 'b44', 'b45', 'b46', 'b47', 'b48', 'b49', 'b50', 'b51',
+                    'b52', 'b53', 'b54', 'b55', 'b56', 'b57', 'b58', 'b59', 'b60', 'b61',
+                    'b62', 'b63', 'b64', 'b65', 'b66', 'b67', 'b68', 'b70', 'b71', 'b72',
+                    'b73', 'b74', 'b75'
+                  ];
+                  
+                  const groundFloorAreas = [
+                    { coords: [38,166,56,191], type: 'rect' },
+                    { coords: [58,166,77,191], type: 'rect' },
+                    { coords: [38,191,58,218], type: 'rect' },
+                    { coords: [58,191,76,218], type: 'rect' },
+                    { coords: [38,218,58,245], type: 'rect' },
+                    { coords: [59,218,76,245], type: 'rect' },
+                    { coords: [9,115,34,139], type: 'rect' },
+                    { coords: [34,115,61,139], type: 'rect' },
+                    { coords: [61,115,81,139], type: 'rect' },
+                    { coords: [117,218,137,243], type: 'rect' },
+                    { coords: [137,218,155,245], type: 'rect' },
+                    { coords: [137,193,154,218], type: 'rect' },
+                    { coords: [117,191,136,218], type: 'rect' },
+                    { coords: [137,166,155,191], type: 'rect' },
+                    { coords: [119,166,136,190], type: 'rect' },
+                    { coords: [139,139,155,164], type: 'rect' },
+                    { coords: [119,139,137,164], type: 'rect' },
+                    { coords: [137,112,155,137], type: 'rect' },
+                    { coords: [117,114,137,139], type: 'rect' },
+                    { coords: [137,87,155,110], type: 'rect' },
+                    { coords: [117,87,137,110], type: 'rect' },
+                    { coords: [119,62,135,85], type: 'rect' },
+                    { coords: [139,60,153,87], type: 'rect' },
+                    { coords: [137,33,155,58], type: 'rect' },
+                    { coords: [119,35,137,58], type: 'rect' },
+                    { coords: [191,33,209,58], type: 'rect' },
+                    { coords: [211,35,229,58], type: 'rect' },
+                    { coords: [191,62,211,85], type: 'rect' },
+                    { coords: [211,62,227,87], type: 'rect' },
+                    { coords: [193,85,209,112], type: 'rect' },
+                    { coords: [211,85,227,110], type: 'rect' },
+                    { coords: [191,112,211,137], type: 'rect' },
+                    { coords: [211,110,227,137], type: 'rect' },
+                    { coords: [191,138,209,164], type: 'rect' },
+                    { coords: [211,139,227,164], type: 'rect' },
+                    { coords: [191,164,209,191], type: 'rect' },
+                    { coords: [209,164,229,191], type: 'rect' },
+                    { coords: [211,191,227,216], type: 'rect' },
+                    { coords: [191,191,209,218], type: 'rect' },
+                    { coords: [191,218,209,241], type: 'rect' },
+                    { coords: [211,218,229,241], type: 'rect' },
+                    { coords: [211,243,227,270], type: 'rect' },
+                    { coords: [191,243,209,270], type: 'rect' },
+                    { coords: [261,60,281,88], type: 'rect' },
+                    { coords: [281,60,299,87], type: 'rect' },
+                    { coords: [261,88,281,112], type: 'rect' },
+                    { coords: [281,87,299,114], type: 'rect' },
+                    { coords: [263,114,281,137], type: 'rect' },
+                    { coords: [281,114,299,139], type: 'rect' },
+                    { coords: [281,139,299,166], type: 'rect' },
+                    { coords: [261,137,281,166], type: 'rect' },
+                    { coords: [261,165,281,191], type: 'rect' },
+                    { coords: [281,165,299,191], type: 'rect' },
+                    { coords: [261,191,281,218], type: 'rect' },
+                    { coords: [281,191,299,218], type: 'rect' },
+                    { coords: [263,220,281,245], type: 'rect' },
+                    { coords: [281,218,299,244], type: 'rect' },
+                    { coords: [261,244,281,269], type: 'rect' },
+                    { coords: [281,244,299,269], type: 'rect' },
+                    { coords: [321,62,348,77], type: 'rect' },
+                    { coords: [349,62,369,78], type: 'rect' },
+                    { coords: [371,59,389,131], type: 'poly' },
+                    { coords: [371,132,389,165], type: 'rect' },
+                    { coords: [371,166,389,197], type: 'rect' },
+                    { coords: [324,102,340,131], type: 'rect' },
+                    { coords: [324,131,340,162], type: 'rect' },
+                    { coords: [324,161,340,192], type: 'rect' },
+                    { coords: [130,303,157,322], type: 'rect' },
+                    { coords: [157,303,184,320], type: 'rect' },
+                    { coords: [184,303,211,321], type: 'rect' },
+                    { coords: [209,302,238,320], type: 'rect' },
+                    { coords: [240,302,265,322], type: 'rect' },
+                    { coords: [264,301,312,323,290,323], type: 'poly' },
+                    { coords: [323,209,342,241,339,209], type: 'poly' },
+                    { coords: [560,315,808,356], type: 'rect' },
+                    { coords: [748,397,846,479], type: 'rect' },
+                    { coords: [524,436,689,478], type: 'rect' },
+                    { coords: [412,362,452,422,469,402,428,380], type: 'poly' },
+                    { coords: [583,378,599,396], type: 'rect' },
+                    { coords: [564,379,581,396], type: 'rect' },
+                    { coords: [581,397,599,413], type: 'rect' },
+                    { coords: [564,396,581,413], type: 'rect' },
+                    { coords: [625,397,639,412], type: 'rect' },
+                    { coords: [623,378,639,395], type: 'rect' },
+                    { coords: [639,396,657,413], type: 'rect' },
+                    { coords: [640,377,657,395], type: 'rect' },
+                    { coords: [658,397,674,412], type: 'rect' },
+                    { coords: [657,378,674,394], type: 'rect' },
+                    { coords: [674,396,690,413], type: 'rect' },
+                    { coords: [674,378,690,394], type: 'rect' },
+                    { coords: [693,379,707,394], type: 'rect' },
+                    { coords: [693,397,707,413], type: 'rect' },
+                  ];
+                  
+                  const shapes = groundFloorAreas.map((area, index) => {
+                    const stallId = groundFloorStallIds[index];
+                    const stall = groundFloorStalls.find(s => s.stall_code === stallId);
+                    const isOccupied = stall?.occupancy_status === 'occupied';
+                    const isHighlighted = highlightedStallCode === stallId;
+                    const fillColor = isOccupied 
+                      ? 'rgba(239, 68, 68, 0.3)'
+                      : 'rgba(34, 197, 94, 0.3)';
+                    const strokeColor = isHighlighted
+                      ? 'rgba(59, 130, 246, 1)'
+                      : isOccupied 
+                        ? 'rgba(239, 68, 68, 0.6)' 
+                        : 'rgba(34, 197, 94, 0.6)';
+                    const strokeWidth = isHighlighted ? '4' : '2';
+                    
+                    let centerX = 0;
+                    let centerY = 0;
+                    
+                    if (area.type === 'rect' && area.coords.length >= 4) {
+                      const [x1, y1, x2, y2] = area.coords;
+                      centerX = (x1 + x2) / 2;
+                      centerY = (y1 + y2) / 2;
+                      
+                      return (
+                        <g key={index}>
+                          <rect
+                            x={x1}
+                            y={y1}
+                            width={x2 - x1}
+                            height={y2 - y1}
+                            fill={fillColor}
+                            stroke={strokeColor}
+                            strokeWidth={strokeWidth}
+                            className="pointer-events-auto cursor-pointer hover:opacity-80 transition-all"
+                            onClick={() => stall && handleBoothClick(stall.stall_code)}
+                          />
+                          {stallId && (
+                            <text
+                              x={centerX}
+                              y={centerY}
+                              textAnchor="middle"
+                              dominantBaseline="middle"
+                              className="pointer-events-none text-xs font-semibold fill-foreground"
+                              style={{ fontSize: '8px' }}
+                            >
+                              {stallId}
+                            </text>
+                          )}
+                        </g>
+                      );
+                    } else if (area.type === 'poly') {
+                      const points = [];
+                      for (let i = 0; i < area.coords.length; i += 2) {
+                        points.push({ x: area.coords[i], y: area.coords[i + 1] });
+                      }
+                      centerX = points.reduce((sum, p) => sum + p.x, 0) / points.length;
+                      centerY = points.reduce((sum, p) => sum + p.y, 0) / points.length;
+                      
+                      const pointsStr = points.map(p => `${p.x},${p.y}`).join(' ');
+                      return (
+                        <g key={index}>
+                          <polygon
+                            points={pointsStr}
+                            fill={fillColor}
+                            stroke={strokeColor}
+                            strokeWidth={strokeWidth}
+                            className="pointer-events-auto cursor-pointer hover:opacity-80 transition-all"
+                            onClick={() => stall && handleBoothClick(stall.stall_code)}
+                          />
+                          {stallId && (
+                            <text
+                              x={centerX}
+                              y={centerY}
+                              textAnchor="middle"
+                              dominantBaseline="middle"
+                              className="pointer-events-none text-xs font-semibold fill-foreground"
+                              style={{ fontSize: '8px' }}
+                            >
+                              {stallId}
+                            </text>
+                          )}
+                        </g>
+                      );
+                    }
+                    return null;
+                  });
+                  
+                  return shapes;
+                })()}
+              </svg>
+            </div>
           </div>
         </TabsContent>
         
