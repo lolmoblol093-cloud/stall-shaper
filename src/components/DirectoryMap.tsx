@@ -345,7 +345,7 @@ export function DirectoryMap({ highlightedStallCode }: DirectoryMapProps) {
         { coords: [595,403,578,387], type: 'rect' }, // d19
         { coords: [578,384,595,367], type: 'rect' }, // d20
         { coords: [561,404,577,386], type: 'rect' }, // d21
-        { coords: [577,386,560,369], type: 'rect' }, // d22
+        { coords: [577,386,560,369], type: 'rect' }, // d53
         { coords: [554,276,533,275,533,252,437,252,412,226,392,244,418,271,495,271,539,315,554,314], type: 'poly' }, // d23
         { coords: [440,412,334,309,324,308,325,259,462,392], type: 'poly' }, // d24
         { coords: [324,309,265,258], type: 'rect' }, // d25
@@ -382,7 +382,7 @@ export function DirectoryMap({ highlightedStallCode }: DirectoryMapProps) {
       const thirdFloorStallIds = [
         'd1', 'd2', 'd3', 'd4', 'd5', 'd6', 'd7', 'd8', 'd9', 'd10',
         'd11', 'd12', 'd13', 'd14', 'd15', 'd16', 'd17', 'd18', 'd19', 'd20',
-        'd21', 'd22', 'd23', 'd24', 'd25', 'd26', 'd27', 'd28', 'd29', 'd30',
+        'd21', 'd23', 'd24', 'd25', 'd26', 'd27', 'd28', 'd29', 'd30',
         'd31', 'd32', 'd33', 'd34', 'd35', 'd36', 'd37', 'd38', 'd39', 'd40',
         'd41', 'd42', 'd43', 'd44', 'd45', 'd46', 'd47', 'd48', 'd49', 'd50',
         'd51', 'd52', 'd53'
@@ -634,7 +634,7 @@ export function DirectoryMap({ highlightedStallCode }: DirectoryMapProps) {
                   const thirdFloorStallIds = [
                     'd1', 'd2', 'd3', 'd4', 'd5', 'd6', 'd7', 'd8', 'd9', 'd10',
                     'd11', 'd12', 'd13', 'd14', 'd15', 'd16', 'd17', 'd18', 'd19', 'd20',
-                    'd21', 'd22', 'd23', 'd24', 'd25', 'd26', 'd27', 'd28', 'd29', 'd30',
+                    'd21', 'd23', 'd24', 'd25', 'd26', 'd27', 'd28', 'd29', 'd30',
                     'd31', 'd32', 'd33', 'd34', 'd35', 'd36', 'd37', 'd38', 'd39', 'd40',
                     'd41', 'd42', 'd43', 'd44', 'd45', 'd46', 'd47', 'd48', 'd49', 'd50',
                     'd51', 'd52', 'd53'
