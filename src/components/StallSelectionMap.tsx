@@ -480,12 +480,17 @@ export function StallSelectionMap({ selectedStallCode, onStallSelect, refreshTri
                     const stallId = stallIdMap[index];
                     const stall = secondFloorStalls[index];
                     const isOccupied = stall?.occupancy_status === 'occupied';
-                    const fillColor = isOccupied 
-                      ? 'rgba(239, 68, 68, 0.3)'  // red for occupied
-                      : 'rgba(34, 197, 94, 0.3)'; // green for available
-                    const strokeColor = isOccupied 
-                      ? 'rgba(239, 68, 68, 0.6)' 
-                      : 'rgba(34, 197, 94, 0.6)';
+                    const isSelected = selectedStallCode === stallId;
+                    const fillColor = isSelected
+                      ? 'rgba(59, 130, 246, 0.5)'
+                      : isOccupied 
+                        ? 'rgba(239, 68, 68, 0.3)'  // red for occupied
+                        : 'rgba(34, 197, 94, 0.3)'; // green for available
+                    const strokeColor = isSelected
+                      ? 'rgba(59, 130, 246, 0.8)'
+                      : isOccupied 
+                        ? 'rgba(239, 68, 68, 0.6)' 
+                        : 'rgba(34, 197, 94, 0.6)';
                     
                     let centerX = 0;
                     let centerY = 0;
