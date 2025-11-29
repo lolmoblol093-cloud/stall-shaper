@@ -528,12 +528,16 @@ export function DirectoryMap({ highlightedStallCode }: DirectoryMapProps) {
                     const stallId = stallIdMap[index];
                     const stall = secondFloorStalls.find(s => s.stall_code === stallId);
                     const isOccupied = stall?.occupancy_status === 'occupied';
+                    const isHighlighted = highlightedStallCode === stallId;
                     const fillColor = isOccupied 
                       ? 'rgba(239, 68, 68, 0.3)'  // red for occupied
                       : 'rgba(34, 197, 94, 0.3)'; // green for available
-                    const strokeColor = isOccupied 
-                      ? 'rgba(239, 68, 68, 0.6)' 
-                      : 'rgba(34, 197, 94, 0.6)';
+                    const strokeColor = isHighlighted
+                      ? 'rgba(59, 130, 246, 1)'  // blue for highlighted
+                      : isOccupied 
+                        ? 'rgba(239, 68, 68, 0.6)' 
+                        : 'rgba(34, 197, 94, 0.6)';
+                    const strokeWidth = isHighlighted ? '4' : '2';
                     
                     let centerX = 0;
                     let centerY = 0;
@@ -551,8 +555,8 @@ export function DirectoryMap({ highlightedStallCode }: DirectoryMapProps) {
                             height={y2 - y1}
                             fill={fillColor}
                             stroke={strokeColor}
-                            strokeWidth="2"
-                            className="pointer-events-auto cursor-pointer hover:opacity-80 transition-opacity"
+                            strokeWidth={strokeWidth}
+                            className="pointer-events-auto cursor-pointer hover:opacity-80 transition-all"
                             onClick={() => stall && handleBoothClick(stall.stall_code)}
                           />
                           {stallId && (
@@ -585,8 +589,8 @@ export function DirectoryMap({ highlightedStallCode }: DirectoryMapProps) {
                             points={pointsStr}
                             fill={fillColor}
                             stroke={strokeColor}
-                            strokeWidth="2"
-                            className="pointer-events-auto cursor-pointer hover:opacity-80 transition-opacity"
+                            strokeWidth={strokeWidth}
+                            className="pointer-events-auto cursor-pointer hover:opacity-80 transition-all"
                             onClick={() => stall && handleBoothClick(stall.stall_code)}
                           />
                           {stallId && (
@@ -700,12 +704,16 @@ export function DirectoryMap({ highlightedStallCode }: DirectoryMapProps) {
                     const stallId = thirdFloorStallIds[index];
                     const stall = thirdFloorStalls.find(s => s.stall_code === stallId);
                     const isOccupied = stall?.occupancy_status === 'occupied';
+                    const isHighlighted = highlightedStallCode === stallId;
                     const fillColor = isOccupied 
                       ? 'rgba(239, 68, 68, 0.3)'
                       : 'rgba(34, 197, 94, 0.3)';
-                    const strokeColor = isOccupied 
-                      ? 'rgba(239, 68, 68, 0.6)' 
-                      : 'rgba(34, 197, 94, 0.6)';
+                    const strokeColor = isHighlighted
+                      ? 'rgba(59, 130, 246, 1)'  // blue for highlighted
+                      : isOccupied 
+                        ? 'rgba(239, 68, 68, 0.6)' 
+                        : 'rgba(34, 197, 94, 0.6)';
+                    const strokeWidth = isHighlighted ? '4' : '2';
                     
                     let centerX = 0;
                     let centerY = 0;
@@ -724,8 +732,8 @@ export function DirectoryMap({ highlightedStallCode }: DirectoryMapProps) {
                             height={y2 - y1}
                             fill={fillColor}
                             stroke={strokeColor}
-                            strokeWidth="2"
-                            className="pointer-events-auto cursor-pointer hover:opacity-80 transition-opacity"
+                            strokeWidth={strokeWidth}
+                            className="pointer-events-auto cursor-pointer hover:opacity-80 transition-all"
                             onClick={() => stall && handleBoothClick(stall.stall_code)}
                           />
                           {stallId && (
@@ -757,8 +765,8 @@ export function DirectoryMap({ highlightedStallCode }: DirectoryMapProps) {
                             points={pointsStr}
                             fill={fillColor}
                             stroke={strokeColor}
-                            strokeWidth="2"
-                            className="pointer-events-auto cursor-pointer hover:opacity-80 transition-opacity"
+                            strokeWidth={strokeWidth}
+                            className="pointer-events-auto cursor-pointer hover:opacity-80 transition-all"
                             onClick={() => stall && handleBoothClick(stall.stall_code)}
                           />
                           {stallId && (
