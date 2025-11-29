@@ -345,7 +345,6 @@ export function DirectoryMap({ highlightedStallCode }: DirectoryMapProps) {
         { coords: [595,403,578,387], type: 'rect' }, // d19
         { coords: [578,384,595,367], type: 'rect' }, // d20
         { coords: [561,404,577,386], type: 'rect' }, // d21
-        { coords: [577,386,560,369], type: 'rect' }, // d53
         { coords: [554,276,533,275,533,252,437,252,412,226,392,244,418,271,495,271,539,315,554,314], type: 'poly' }, // d23
         { coords: [440,412,334,309,324,308,325,259,462,392], type: 'poly' }, // d24
         { coords: [324,309,265,258], type: 'rect' }, // d25
@@ -377,6 +376,7 @@ export function DirectoryMap({ highlightedStallCode }: DirectoryMapProps) {
         { coords: [115,214,132,199], type: 'rect' }, // d51
         { coords: [98,234,115,216], type: 'rect' }, // d52
         { coords: [115,215,98,198], type: 'rect' }, // d53
+        { coords: [577,386,560,369], type: 'rect' }, // d54 (last coordinate from your list)
       ];
       
       const thirdFloorStallIds = [
@@ -385,7 +385,7 @@ export function DirectoryMap({ highlightedStallCode }: DirectoryMapProps) {
         'd21', 'd23', 'd24', 'd25', 'd26', 'd27', 'd28', 'd29', 'd30',
         'd31', 'd32', 'd33', 'd34', 'd35', 'd36', 'd37', 'd38', 'd39', 'd40',
         'd41', 'd42', 'd43', 'd44', 'd45', 'd46', 'd47', 'd48', 'd49', 'd50',
-        'd51', 'd52', 'd53'
+        'd51', 'd52', 'd53', 'd54'
       ];
       
       for (let i = 0; i < thirdFloorAreas.length; i++) {
@@ -637,7 +637,7 @@ export function DirectoryMap({ highlightedStallCode }: DirectoryMapProps) {
                     'd21', 'd23', 'd24', 'd25', 'd26', 'd27', 'd28', 'd29', 'd30',
                     'd31', 'd32', 'd33', 'd34', 'd35', 'd36', 'd37', 'd38', 'd39', 'd40',
                     'd41', 'd42', 'd43', 'd44', 'd45', 'd46', 'd47', 'd48', 'd49', 'd50',
-                    'd51', 'd52', 'd53'
+                    'd51', 'd52', 'd53', 'd54'
                   ];
                   
                   const thirdFloorAreas = [
@@ -662,7 +662,6 @@ export function DirectoryMap({ highlightedStallCode }: DirectoryMapProps) {
                     { coords: [595,403,578,387], type: 'rect' },
                     { coords: [578,384,595,367], type: 'rect' },
                     { coords: [561,404,577,386], type: 'rect' },
-                    { coords: [577,386,560,369], type: 'rect' },
                     { coords: [554,276,533,275,533,252,437,252,412,226,392,244,418,271,495,271,539,315,554,314], type: 'poly' },
                     { coords: [440,412,334,309,324,308,325,259,462,392], type: 'poly' },
                     { coords: [324,309,265,258], type: 'rect' },
@@ -694,6 +693,7 @@ export function DirectoryMap({ highlightedStallCode }: DirectoryMapProps) {
                     { coords: [115,214,132,199], type: 'rect' },
                     { coords: [98,234,115,216], type: 'rect' },
                     { coords: [115,215,98,198], type: 'rect' },
+                    { coords: [577,386,560,369], type: 'rect' },
                   ];
                   
                   const shapes = thirdFloorAreas.map((area, index) => {
