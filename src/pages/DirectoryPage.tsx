@@ -103,6 +103,7 @@ const DirectoryPage = () => {
 
   const groundFloorStalls = filteredStalls.filter(s => s.floor === "Ground Floor");
   const secondFloorStalls = filteredStalls.filter(s => s.floor === "Second Floor");
+  const thirdFloorStalls = filteredStalls.filter(s => s.floor === "Third Floor");
 
   const handleStallClick = (stallCode: string) => {
     setHighlightedStallCode(stallCode);
@@ -180,6 +181,12 @@ const DirectoryPage = () => {
               onClick={() => setSelectedFloor("Second Floor")}
             >
               Second Floor
+            </Button>
+            <Button 
+              variant={selectedFloor === "Third Floor" ? "default" : "outline"}
+              onClick={() => setSelectedFloor("Third Floor")}
+            >
+              Third Floor
             </Button>
           </div>
         </div>
@@ -259,6 +266,60 @@ const DirectoryPage = () => {
             <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
                 {secondFloorStalls.map((stall) => (
+                  <div
+                    key={stall.stallCode}
+                    onClick={() => handleStallClick(stall.stallCode)}
+                    className={`p-4 rounded-lg border-2 transition-all cursor-pointer hover:shadow-lg ${
+                      stall.occupancyStatus === "occupied" 
+                        ? "border-status-occupied bg-card" 
+                        : "border-status-vacant bg-muted/30"
+                    } ${highlightedStallCode === stall.stallCode ? 'ring-2 ring-primary shadow-lg scale-105' : ''}`}
+                  >
+                    <div className="text-center space-y-2">
+                      <div className="font-bold text-lg">Stall {stall.stallCode}</div>
+                      {stall.occupancyStatus === "occupied" ? (
+                        <>
+                          <div className="text-sm font-medium">{stall.tenantName}</div>
+                          {stall.businessType && (
+                            <Badge className={`${getBusinessTypeColor(stall.businessType)} text-white text-xs`}>
+                              {stall.businessType}
+                            </Badge>
+                          )}
+                        </>
+                      ) : (
+                        <div className="text-sm text-muted-foreground">Available for Rent</div>
+                      )}
+                      <Badge
+                        variant="outline"
+                        className={stall.occupancyStatus === "occupied" 
+                          ? "border-status-occupied text-status-occupied" 
+                          : "border-status-vacant text-status-vacant"
+                        }
+                      >
+                        {stall.occupancyStatus}
+                      </Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {(selectedFloor === "all" || selectedFloor === "Third Floor") && thirdFloorStalls.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Building className="h-5 w-5" />
+                <span>Third Floor Directory</span>
+              </CardTitle>
+              <CardDescription>
+                {thirdFloorStalls.filter(s => s.occupancyStatus === "occupied").length} occupied, {thirdFloorStalls.filter(s => s.occupancyStatus === "vacant").length} available
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                {thirdFloorStalls.map((stall) => (
                   <div
                     key={stall.stallCode}
                     onClick={() => handleStallClick(stall.stallCode)}
