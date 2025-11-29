@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import secondFloorSvg from '@/assets/second-floor.svg';
+import thirdFloorSvg from '@/assets/third-floor.svg';
 
 interface Booth {
   id: string;
@@ -146,7 +147,7 @@ export function DirectoryMap({ highlightedStallCode }: DirectoryMapProps) {
   const [selectedStall, setSelectedStall] = useState<StallData | null>(null);
   const [selectedTenant, setSelectedTenant] = useState<TenantData | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [currentFloor, setCurrentFloor] = useState<'ground' | 'second'>('ground');
+  const [currentFloor, setCurrentFloor] = useState<'ground' | 'second' | 'third'>('ground');
   const imageRef = useRef<HTMLImageElement>(null);
 
   useEffect(() => {
@@ -244,6 +245,7 @@ export function DirectoryMap({ highlightedStallCode }: DirectoryMapProps) {
     
     // Find matching stall from database for second floor
     const secondFloorStalls = stallsData.filter(s => s.floor === 'Second Floor');
+    const thirdFloorStalls = stallsData.filter(s => s.floor === 'Third Floor');
     
     // Check each area coordinate to see if click is inside
     const areas = [
@@ -318,6 +320,41 @@ export function DirectoryMap({ highlightedStallCode }: DirectoryMapProps) {
         }
       }
     }
+    
+    // Third floor click handling
+    if (currentFloor === 'third') {
+      const thirdFloorAreas = [
+        { coords: [818,386,854,470], type: 'rect' }, // d1
+        { coords: [758,387,818,470], type: 'rect' }, // d2
+        { coords: [534,277,818,386], type: 'rect' }, // d3
+        { coords: [436,310,534,386], type: 'rect' }, // d4
+        { coords: [260,310,436,386], type: 'rect' }, // d5
+        { coords: [114,310,260,386], type: 'rect' }, // d6
+        { coords: [4,260,108,386], type: 'rect' }, // d7
+        { coords: [4,9,375,260], type: 'rect' }, // d8
+        { coords: [375,9,534,253], type: 'rect' }, // d9
+        { coords: [534,9,690,277], type: 'rect' }, // d10
+        { coords: [690,9,854,277], type: 'rect' }, // d11
+      ];
+      
+      const thirdFloorStallIds = ['d1', 'd2', 'd3', 'd4', 'd5', 'd6', 'd7', 'd8', 'd9', 'd10', 'd11'];
+      
+      for (let i = 0; i < thirdFloorAreas.length; i++) {
+        const area = thirdFloorAreas[i];
+        if (area.type === 'rect' && area.coords.length >= 4) {
+          const [x1, y1, x2, y2] = area.coords;
+          if (scaledX >= x1 && scaledX <= x2 && scaledY >= y1 && scaledY <= y2) {
+            const stallId = thirdFloorStallIds[i];
+            const stall = thirdFloorStalls.find(s => s.stall_code === stallId);
+            if (stall) {
+              handleBoothClick(stall.stall_code);
+            }
+            return;
+          }
+        }
+      }
+      return;
+    }
   };
 
   const isPointInPolygon = (x: number, y: number, coords: number[]): boolean => {
@@ -343,10 +380,11 @@ export function DirectoryMap({ highlightedStallCode }: DirectoryMapProps) {
     <div className="directory-map-container">
       <h3 className="text-xl font-semibold mb-4">Stall Directory Map</h3>
       
-      <Tabs value={currentFloor} onValueChange={(v) => setCurrentFloor(v as 'ground' | 'second')} className="w-full">
-        <TabsList className="grid w-full grid-cols-2 mb-4">
+      <Tabs value={currentFloor} onValueChange={(v) => setCurrentFloor(v as 'ground' | 'second' | 'third')} className="w-full">
+        <TabsList className="grid w-full grid-cols-3 mb-4">
           <TabsTrigger value="ground">Ground Floor</TabsTrigger>
           <TabsTrigger value="second">Second Floor</TabsTrigger>
+          <TabsTrigger value="third">Third Floor</TabsTrigger>
         </TabsList>
         
         <TabsContent value="ground">
@@ -500,6 +538,93 @@ export function DirectoryMap({ highlightedStallCode }: DirectoryMapProps) {
                               textAnchor="middle"
                               dominantBaseline="middle"
                               className="pointer-events-none text-sm font-semibold fill-foreground"
+                              style={{ fontSize: '12px' }}
+                            >
+                              {stallId}
+                            </text>
+                          )}
+                        </g>
+                      );
+                    }
+                    return null;
+                  });
+                  
+                  return shapes;
+                })()}
+              </svg>
+            </div>
+          </div>
+        </TabsContent>
+        
+        <TabsContent value="third">
+          <div className="relative w-full max-w-4xl mx-auto">
+            <div className="relative">
+              <img 
+                ref={imageRef}
+                src={thirdFloorSvg} 
+                alt="Third Floor Map" 
+                className="w-full h-auto border border-border rounded-lg"
+              />
+              <svg 
+                className="absolute inset-0 w-full h-auto cursor-pointer pointer-events-none"
+                viewBox="0 0 858 482"
+                preserveAspectRatio="xMidYMid meet"
+              >
+                {(() => {
+                  const thirdFloorStalls = stallsData.filter(s => s.floor === 'Third Floor');
+                  
+                  const thirdFloorStallIds = ['d1', 'd2', 'd3', 'd4', 'd5', 'd6', 'd7', 'd8', 'd9', 'd10', 'd11'];
+                  
+                  const thirdFloorAreas = [
+                    { coords: [818,386,854,470], type: 'rect' },
+                    { coords: [758,387,818,470], type: 'rect' },
+                    { coords: [534,277,818,386], type: 'rect' },
+                    { coords: [436,310,534,386], type: 'rect' },
+                    { coords: [260,310,436,386], type: 'rect' },
+                    { coords: [114,310,260,386], type: 'rect' },
+                    { coords: [4,260,108,386], type: 'rect' },
+                    { coords: [4,9,375,260], type: 'rect' },
+                    { coords: [375,9,534,253], type: 'rect' },
+                    { coords: [534,9,690,277], type: 'rect' },
+                    { coords: [690,9,854,277], type: 'rect' },
+                  ];
+                  
+                  const shapes = thirdFloorAreas.map((area, index) => {
+                    const stallId = thirdFloorStallIds[index];
+                    const stall = thirdFloorStalls.find(s => s.stall_code === stallId);
+                    const isOccupied = stall?.occupancy_status === 'occupied';
+                    const fillColor = isOccupied 
+                      ? 'rgba(239, 68, 68, 0.3)'
+                      : 'rgba(34, 197, 94, 0.3)';
+                    const strokeColor = isOccupied 
+                      ? 'rgba(239, 68, 68, 0.6)' 
+                      : 'rgba(34, 197, 94, 0.6)';
+                    
+                    if (area.type === 'rect' && area.coords.length >= 4) {
+                      const [x1, y1, x2, y2] = area.coords;
+                      const centerX = (x1 + x2) / 2;
+                      const centerY = (y1 + y2) / 2;
+                      
+                      return (
+                        <g key={index}>
+                          <rect
+                            x={x1}
+                            y={y1}
+                            width={x2 - x1}
+                            height={y2 - y1}
+                            fill={fillColor}
+                            stroke={strokeColor}
+                            strokeWidth="2"
+                            className="pointer-events-auto cursor-pointer hover:opacity-80 transition-opacity"
+                            onClick={() => stall && handleBoothClick(stall.stall_code)}
+                          />
+                          {stallId && (
+                            <text
+                              x={centerX}
+                              y={centerY}
+                              textAnchor="middle"
+                              dominantBaseline="middle"
+                              className="pointer-events-none text-xs font-semibold fill-foreground"
                               style={{ fontSize: '12px' }}
                             >
                               {stallId}
