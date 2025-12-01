@@ -426,81 +426,98 @@ export function StallSelectionMap({ selectedStallCode, onStallSelect, refreshTri
                   ];
                   
                   const groundFloorAreas = [
-                    { coords: [38,166,56,191], type: 'rect' },      // b1
-                    { coords: [58,166,77,191], type: 'rect' },      // b2
-                    { coords: [38,191,58,218], type: 'rect' },      // b3
-                    { coords: [58,191,76,218], type: 'rect' },      // b4
-                    { coords: [38,218,58,245], type: 'rect' },      // b5
-                    { coords: [59,218,76,245], type: 'rect' },      // b6
-                    { coords: [9,115,34,139], type: 'rect' },       // b7
-                    { coords: [34,115,61,139], type: 'rect' },      // b8
-                    { coords: [61,115,81,139], type: 'rect' },      // b9
-                    { coords: [117,218,137,243], type: 'rect' },    // b10
-                    { coords: [137,218,155,245], type: 'rect' },    // b11
-                    { coords: [137,193,154,218], type: 'rect' },    // b12
-                    { coords: [117,191,136,218], type: 'rect' },    // b13
-                    { coords: [137,166,155,191], type: 'rect' },    // b14
-                    { coords: [119,166,136,190], type: 'rect' },    // b15
-                    { coords: [139,139,155,164], type: 'rect' },    // b16
-                    { coords: [119,139,137,164], type: 'rect' },    // b17
-                    { coords: [137,112,155,137], type: 'rect' },    // b18
-                    { coords: [117,114,137,139], type: 'rect' },    // b19
-                    { coords: [137,87,155,110], type: 'rect' },     // b20
-                    { coords: [117,87,137,110], type: 'rect' },     // b21
-                    { coords: [119,62,135,85], type: 'rect' },      // b22
-                    { coords: [139,60,153,87], type: 'rect' },      // b23
-                    { coords: [137,33,155,58], type: 'rect' },      // b24
-                    { coords: [119,35,137,58], type: 'rect' },      // b25
-                    { coords: [191,33,209,58], type: 'rect' },      // b26
-                    { coords: [211,35,229,58], type: 'rect' },      // b27
-                    { coords: [191,62,211,85], type: 'rect' },      // b28
-                    { coords: [211,62,227,87], type: 'rect' },      // b29
-                    { coords: [193,85,209,112], type: 'rect' },     // b30
-                    { coords: [211,85,227,110], type: 'rect' },     // b31
-                    { coords: [191,112,211,137], type: 'rect' },    // b32
-                    { coords: [211,110,227,137], type: 'rect' },    // b33
-                    { coords: [191,138,209,164], type: 'rect' },    // b34
-                    { coords: [211,139,227,164], type: 'rect' },    // b35
-                    { coords: [191,164,209,191], type: 'rect' },    // b36
-                    { coords: [209,164,229,191], type: 'rect' },    // b37
-                    { coords: [211,191,227,216], type: 'rect' },    // b38
-                    { coords: [191,191,209,218], type: 'rect' },    // b39
-                    { coords: [191,218,209,241], type: 'rect' },    // b40
-                    { coords: [211,218,229,241], type: 'rect' },    // b41
-                    { coords: [211,243,227,270], type: 'rect' },    // b42
-                    { coords: [191,243,209,270], type: 'rect' },    // b43
-                    { coords: [261,60,281,88], type: 'rect' },      // b44
-                    { coords: [281,60,299,87], type: 'rect' },      // b45
-                    { coords: [261,88,281,112], type: 'rect' },     // b46
-                    { coords: [281,87,299,114], type: 'rect' },     // b47
-                    { coords: [263,114,281,137], type: 'rect' },    // b48
-                    { coords: [281,114,299,139], type: 'rect' },    // b49
-                    { coords: [281,139,299,166], type: 'rect' },    // b50
-                    { coords: [261,137,281,166], type: 'rect' },    // b51
-                    { coords: [261,165,281,191], type: 'rect' },    // b52
-                    { coords: [281,165,299,191], type: 'rect' },    // b53
-                    { coords: [261,191,281,218], type: 'rect' },    // b54
-                    { coords: [281,191,299,218], type: 'rect' },    // b55
-                    { coords: [263,220,281,245], type: 'rect' },    // b56
-                    { coords: [281,218,299,244], type: 'rect' },    // b57
-                    { coords: [261,244,281,269], type: 'rect' },    // b58
-                    { coords: [281,244,299,269], type: 'rect' },    // b59
-                    { coords: [321,62,348,77], type: 'rect' },      // b60
-                    { coords: [349,62,369,78], type: 'rect' },      // b61
-                    { coords: [371,59,389,131], type: 'rect' },     // b62
-                    { coords: [371,132,389,165], type: 'rect' },    // b63
-                    { coords: [371,166,389,197], type: 'rect' },    // b64
-                    { coords: [324,102,340,131], type: 'rect' },    // b65
-                    { coords: [324,131,340,162], type: 'rect' },    // b66
-                    { coords: [324,161,340,192], type: 'rect' },    // b67
-                    { coords: [130,303,157,322], type: 'rect' },    // b68
-                    { coords: [157,303,184,320], type: 'rect' },    // b69
-                    { coords: [184,303,211,321], type: 'rect' },    // b70
-                    { coords: [209,302,238,320], type: 'rect' },    // b71
-                    { coords: [240,302,265,322], type: 'rect' },    // b72
-                    { coords: [268,301,312,303,290,323,264,323], type: 'poly' },  // b73
-                    { coords: [323,209,323,261,342,241,339,209], type: 'poly' },  // b74
-                    { coords: [560,315,808,356], type: 'rect' },    // b75
+                    { coords: [38,166,56,191], type: 'rect' },
+                    { coords: [58,166,77,191], type: 'rect' },
+                    { coords: [38,191,58,218], type: 'rect' },
+                    { coords: [58,191,76,218], type: 'rect' },
+                    { coords: [38,218,58,245], type: 'rect' },
+                    { coords: [59,218,76,245], type: 'rect' },
+                    { coords: [9,115,34,139], type: 'rect' },
+                    { coords: [34,115,61,139], type: 'rect' },
+                    { coords: [61,115,81,139], type: 'rect' },
+                    { coords: [117,218,137,243], type: 'rect' },
+                    { coords: [137,218,155,245], type: 'rect' },
+                    { coords: [137,193,154,218], type: 'rect' },
+                    { coords: [117,191,136,218], type: 'rect' },
+                    { coords: [137,166,155,191], type: 'rect' },
+                    { coords: [119,166,136,190], type: 'rect' },
+                    { coords: [139,139,155,164], type: 'rect' },
+                    { coords: [119,139,137,164], type: 'rect' },
+                    { coords: [137,112,155,137], type: 'rect' },
+                    { coords: [117,114,137,139], type: 'rect' },
+                    { coords: [137,87,155,110], type: 'rect' },
+                    { coords: [117,87,137,110], type: 'rect' },
+                    { coords: [119,62,135,85], type: 'rect' },
+                    { coords: [139,60,153,87], type: 'rect' },
+                    { coords: [137,33,155,58], type: 'rect' },
+                    { coords: [119,35,137,58], type: 'rect' },
+                    { coords: [191,33,209,58], type: 'rect' },
+                    { coords: [211,35,229,58], type: 'rect' },
+                    { coords: [191,62,211,85], type: 'rect' },
+                    { coords: [211,62,227,87], type: 'rect' },
+                    { coords: [193,85,209,112], type: 'rect' },
+                    { coords: [211,85,227,110], type: 'rect' },
+                    { coords: [191,112,211,137], type: 'rect' },
+                    { coords: [211,110,227,137], type: 'rect' },
+                    { coords: [191,138,209,164], type: 'rect' },
+                    { coords: [211,139,227,164], type: 'rect' },
+                    { coords: [191,164,209,191], type: 'rect' },
+                    { coords: [209,164,229,191], type: 'rect' },
+                    { coords: [211,191,227,216], type: 'rect' },
+                    { coords: [191,191,209,218], type: 'rect' },
+                    { coords: [191,218,209,241], type: 'rect' },
+                    { coords: [211,218,229,241], type: 'rect' },
+                    { coords: [211,243,227,270], type: 'rect' },
+                    { coords: [191,243,209,270], type: 'rect' },
+                    { coords: [261,60,281,88], type: 'rect' },
+                    { coords: [281,60,299,87], type: 'rect' },
+                    { coords: [261,88,281,112], type: 'rect' },
+                    { coords: [281,87,299,114], type: 'rect' },
+                    { coords: [263,114,281,137], type: 'rect' },
+                    { coords: [281,114,299,139], type: 'rect' },
+                    { coords: [281,139,299,166], type: 'rect' },
+                    { coords: [261,137,281,166], type: 'rect' },
+                    { coords: [261,165,281,191], type: 'rect' },
+                    { coords: [281,165,299,191], type: 'rect' },
+                    { coords: [261,191,281,218], type: 'rect' },
+                    { coords: [281,191,299,218], type: 'rect' },
+                    { coords: [263,220,281,245], type: 'rect' },
+                    { coords: [281,218,299,244], type: 'rect' },
+                    { coords: [261,244,281,269], type: 'rect' },
+                    { coords: [281,244,299,269], type: 'rect' },
+                    { coords: [321,62,348,77], type: 'rect' },
+                    { coords: [349,62,369,78], type: 'rect' },
+                    { coords: [371,59,389,131], type: 'rect' },
+                    { coords: [371,132,389,165], type: 'rect' },
+                    { coords: [371,166,389,197], type: 'rect' },
+                    { coords: [324,102,340,131], type: 'rect' },
+                    { coords: [324,131,340,162], type: 'rect' },
+                    { coords: [324,161,340,192], type: 'rect' },
+                    { coords: [130,303,157,322], type: 'rect' },
+                    { coords: [157,303,184,320], type: 'rect' },
+                    { coords: [184,303,211,321], type: 'rect' },
+                    { coords: [209,302,238,320], type: 'rect' },
+                    { coords: [240,302,265,322], type: 'rect' },
+                    { coords: [268,301,312,303,290,323,264,323], type: 'poly' },
+                    { coords: [323,209,323,261,342,241,339,209], type: 'poly' },
+                    { coords: [560,315,808,356], type: 'rect' },
+                    { coords: [748,397,846,479], type: 'rect' },
+                    { coords: [524,436,689,478], type: 'rect' },
+                    { coords: [412,380,452,422,469,402,428,362], type: 'poly' },
+                    { coords: [583,378,599,396], type: 'rect' },
+                    { coords: [564,379,581,396], type: 'rect' },
+                    { coords: [581,397,599,413], type: 'rect' },
+                    { coords: [564,396,581,413], type: 'rect' },
+                    { coords: [625,397,639,412], type: 'rect' },
+                    { coords: [623,378,639,395], type: 'rect' },
+                    { coords: [639,396,657,413], type: 'rect' },
+                    { coords: [640,377,657,395], type: 'rect' },
+                    { coords: [658,397,674,412], type: 'rect' },
+                    { coords: [657,378,674,394], type: 'rect' },
+                    { coords: [674,396,690,413], type: 'rect' },
+                    { coords: [674,378,690,394], type: 'rect' },
+                    { coords: [693,379,707,394], type: 'rect' },
+                    { coords: [693,397,707,413], type: 'rect' },
                   ];
                   
                   const shapes = groundFloorAreas.map((area, index) => {
