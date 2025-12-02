@@ -473,7 +473,7 @@ export function DirectoryMap({ highlightedStallCode }: DirectoryMapProps) {
     'b61', 'b62', 'b63', 'b64', 'b65', 'b66', 'b67', 'b68', 'b69', 'b70',
     'b71', 'b72', 'b73', 'b74', 'b75', 'b76', 'b77', 'b78', 'b79', 'b80',
     'b81', 'b82', 'b83', 'b84', 'b85', 'b86', 'b87', 'b88', 'b89', 'b90',
-    'b91', 'b92', 'b93', 'b94', 'b95', 'b96'
+    'b91', 'b92'
   ];
                   
                   const groundFloorAreas = [
@@ -569,10 +569,6 @@ export function DirectoryMap({ highlightedStallCode }: DirectoryMapProps) {
                     { coords: [674,378,690,394], type: 'rect' },
                     { coords: [693,379,707,394], type: 'rect' },
                     { coords: [693,397,707,413], type: 'rect' },
-                    { coords: [707,379,721,394], type: 'rect' },
-                    { coords: [707,397,721,413], type: 'rect' },
-                    { coords: [721,379,735,394], type: 'rect' },
-                    { coords: [721,397,735,413], type: 'rect' },
                   ];
                   
                   const shapes = groundFloorAreas.map((area, index) => {
