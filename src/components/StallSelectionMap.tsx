@@ -520,6 +520,10 @@ export function StallSelectionMap({ selectedStallCode, onStallSelect, refreshTri
                     { coords: [674,378,690,394], type: 'rect' },
                     { coords: [693,379,707,394], type: 'rect' },
                     { coords: [693,397,707,413], type: 'rect' },
+                    { coords: [707,379,721,394], type: 'rect' },
+                    { coords: [707,397,721,413], type: 'rect' },
+                    { coords: [721,379,735,394], type: 'rect' },
+                    { coords: [721,397,735,413], type: 'rect' },
                   ];
                   
                   const shapes = groundFloorAreas.map((area, index) => {
