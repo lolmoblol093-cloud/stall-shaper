@@ -9,10 +9,38 @@ import {
   Users, 
   Home, 
   Download,
-  DollarSign
+  DollarSign,
+  Calendar
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
+import { format, subMonths, startOfMonth, endOfMonth } from "date-fns";
+
+interface FloorOccupancy {
+  floor: string;
+  occupied: number;
+  vacant: number;
+  total: number;
+  rate: number;
+}
+
+interface MonthlyRevenue {
+  month: string;
+  revenue: number;
+}
+
+interface Payment {
+  id: string;
+  amount: number;
+  payment_date: string;
+  status: string | null;
+  payment_method: string | null;
+  tenant_id: string;
+  tenant_name?: string;
+}
+
+const COLORS = ['hsl(var(--primary))', 'hsl(var(--muted))'];
 
 const ReportsPage = () => {
   const { toast } = useToast();
@@ -23,6 +51,10 @@ const ReportsPage = () => {
   const [occupiedStallsCount, setOccupiedStallsCount] = useState(0);
   const [totalRevenue, setTotalRevenue] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [floorOccupancy, setFloorOccupancy] = useState<FloorOccupancy[]>([]);
+  const [monthlyRevenue, setMonthlyRevenue] = useState<MonthlyRevenue[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [tenants, setTenants] = useState<any[]>([]);
 
   useEffect(() => {
     fetchReportData();
@@ -31,18 +63,22 @@ const ReportsPage = () => {
   const fetchReportData = async () => {
     try {
       // Fetch tenants data
-      const { data: tenants, error: tenantsError } = await supabase
+      const { data: tenantsData, error: tenantsError } = await supabase
         .from("tenants")
         .select("*");
       
       if (tenantsError) throw tenantsError;
       
-      setTenantCount(tenants?.length || 0);
-      setActiveTenantsCount(tenants?.filter(t => t.status === "active").length || 0);
+      setTenants(tenantsData || []);
+      setTenantCount(tenantsData?.length || 0);
+      setActiveTenantsCount(tenantsData?.filter(t => t.status === "active").length || 0);
       
-      // Calculate total revenue
-      const revenue = tenants?.reduce((sum, tenant) => {
-        return sum + (tenant.monthly_rent || 0);
+      // Calculate total revenue from active tenants
+      const revenue = tenantsData?.reduce((sum, tenant) => {
+        if (tenant.status === "active") {
+          return sum + (tenant.monthly_rent || 0);
+        }
+        return sum;
       }, 0) || 0;
       setTotalRevenue(revenue);
 
@@ -55,6 +91,75 @@ const ReportsPage = () => {
       
       setStallsCount(stalls?.length || 0);
       setOccupiedStallsCount(stalls?.filter(s => s.occupancy_status === "occupied").length || 0);
+      
+      // Calculate floor occupancy breakdown
+      const floorData: { [key: string]: { occupied: number; vacant: number } } = {};
+      stalls?.forEach(stall => {
+        const floor = stall.floor || "Unknown";
+        if (!floorData[floor]) {
+          floorData[floor] = { occupied: 0, vacant: 0 };
+        }
+        if (stall.occupancy_status === "occupied") {
+          floorData[floor].occupied++;
+        } else {
+          floorData[floor].vacant++;
+        }
+      });
+
+      const floorOccupancyArray: FloorOccupancy[] = Object.entries(floorData).map(([floor, data]) => ({
+        floor,
+        occupied: data.occupied,
+        vacant: data.vacant,
+        total: data.occupied + data.vacant,
+        rate: data.occupied + data.vacant > 0 
+          ? Math.round((data.occupied / (data.occupied + data.vacant)) * 100) 
+          : 0
+      })).sort((a, b) => {
+        const order = ["Ground Floor", "Second Floor", "Third Floor"];
+        return order.indexOf(a.floor) - order.indexOf(b.floor);
+      });
+      
+      setFloorOccupancy(floorOccupancyArray);
+
+      // Fetch payments data
+      const { data: paymentsData, error: paymentsError } = await supabase
+        .from("payments")
+        .select("*")
+        .order("payment_date", { ascending: false });
+      
+      if (paymentsError) throw paymentsError;
+
+      // Map tenant names to payments
+      const paymentsWithNames = paymentsData?.map(payment => ({
+        ...payment,
+        tenant_name: tenantsData?.find(t => t.id === payment.tenant_id)?.business_name || "Unknown"
+      })) || [];
+      
+      setPayments(paymentsWithNames);
+
+      // Calculate monthly revenue trends (last 6 months)
+      const monthlyData: { [key: string]: number } = {};
+      for (let i = 5; i >= 0; i--) {
+        const date = subMonths(new Date(), i);
+        const monthKey = format(date, "MMM yyyy");
+        monthlyData[monthKey] = 0;
+      }
+
+      paymentsData?.forEach(payment => {
+        if (payment.status === "completed") {
+          const monthKey = format(new Date(payment.payment_date), "MMM yyyy");
+          if (monthlyData.hasOwnProperty(monthKey)) {
+            monthlyData[monthKey] += Number(payment.amount) || 0;
+          }
+        }
+      });
+
+      const monthlyRevenueArray: MonthlyRevenue[] = Object.entries(monthlyData).map(([month, revenue]) => ({
+        month,
+        revenue
+      }));
+      
+      setMonthlyRevenue(monthlyRevenueArray);
       
     } catch (error: any) {
       toast({
@@ -74,11 +179,96 @@ const ReportsPage = () => {
     });
   };
 
-  const exportReport = (format: string) => {
+  const exportToCSV = (data: any[], filename: string) => {
+    if (data.length === 0) {
+      toast({
+        title: "No Data",
+        description: "No data available to export",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const headers = Object.keys(data[0]);
+    const csvContent = [
+      headers.join(","),
+      ...data.map(row => headers.map(header => {
+        const value = row[header];
+        if (typeof value === "string" && value.includes(",")) {
+          return `"${value}"`;
+        }
+        return value ?? "";
+      }).join(","))
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `${filename}_${format(new Date(), "yyyy-MM-dd")}.csv`;
+    link.click();
+
     toast({
-      title: "Exporting Report",
-      description: `Report will be downloaded as ${format.toUpperCase()}`,
+      title: "Export Complete",
+      description: `${filename} has been downloaded as CSV`,
     });
+  };
+
+  const exportReport = (format: string) => {
+    let data: any[] = [];
+    let filename = "";
+
+    switch (reportType) {
+      case "occupancy":
+        data = floorOccupancy.map(f => ({
+          Floor: f.floor,
+          Occupied: f.occupied,
+          Vacant: f.vacant,
+          Total: f.total,
+          "Occupancy Rate (%)": f.rate
+        }));
+        filename = "occupancy_report";
+        break;
+      case "financial":
+        data = monthlyRevenue.map(m => ({
+          Month: m.month,
+          Revenue: m.revenue
+        }));
+        filename = "financial_report";
+        break;
+      case "tenant":
+        data = tenants.map(t => ({
+          "Business Name": t.business_name,
+          "Contact Person": t.contact_person,
+          Email: t.email || "",
+          Phone: t.phone || "",
+          "Stall Number": t.stall_number || "",
+          Status: t.status || "",
+          "Monthly Rent": t.monthly_rent || 0
+        }));
+        filename = "tenant_report";
+        break;
+      case "payments":
+        data = payments.map(p => ({
+          "Tenant": p.tenant_name,
+          "Amount": p.amount,
+          "Date": p.payment_date,
+          "Status": p.status || "",
+          "Method": p.payment_method || ""
+        }));
+        filename = "payment_report";
+        break;
+    }
+
+    if (format === "csv") {
+      exportToCSV(data, filename);
+    } else {
+      toast({
+        title: "Export Started",
+        description: `${format.toUpperCase()} export is being prepared. CSV format is currently fully supported.`,
+      });
+      // For now, default to CSV for other formats
+      exportToCSV(data, filename);
+    }
   };
 
   if (loading) {
@@ -94,13 +284,18 @@ const ReportsPage = () => {
   const occupancyRate = stallsCount > 0 ? ((occupiedStallsCount / stallsCount) * 100).toFixed(1) : 0;
   const vacantStallsCount = stallsCount - occupiedStallsCount;
 
+  const pieData = [
+    { name: "Occupied", value: occupiedStallsCount },
+    { name: "Vacant", value: vacantStallsCount }
+  ];
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
         <div>
           <h2 className="text-3xl font-bold text-foreground">Reports & Analytics</h2>
           <p className="text-muted-foreground mt-2">
-            Generate and view comprehensive reports on occupancy and revenue
+            Generate and view comprehensive reports on occupancy, revenue, and payments
           </p>
         </div>
 
@@ -186,7 +381,7 @@ const ReportsPage = () => {
                     <SelectItem value="occupancy">Occupancy Report</SelectItem>
                     <SelectItem value="financial">Financial Report</SelectItem>
                     <SelectItem value="tenant">Tenant Report</SelectItem>
-                    <SelectItem value="maintenance">Maintenance Report</SelectItem>
+                    <SelectItem value="payments">Payment History Report</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -216,42 +411,139 @@ const ReportsPage = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card>
             <CardHeader>
-              <CardTitle>Occupancy Breakdown</CardTitle>
-              <CardDescription>Stall occupancy by floor</CardDescription>
+              <CardTitle>Occupancy Breakdown by Floor</CardTitle>
+              <CardDescription>Real-time stall occupancy per floor</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                  <span className="font-medium">Ground Floor</span>
-                  <span className="text-muted-foreground">Coming soon</span>
-                </div>
-                <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                  <span className="font-medium">Second Floor</span>
-                  <span className="text-muted-foreground">Coming soon</span>
-                </div>
+                {floorOccupancy.length === 0 ? (
+                  <p className="text-muted-foreground text-center py-4">No floor data available</p>
+                ) : (
+                  floorOccupancy.map((floor) => (
+                    <div key={floor.floor} className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">{floor.floor}</span>
+                        <span className="text-sm text-muted-foreground">
+                          {floor.occupied}/{floor.total} occupied ({floor.rate}%)
+                        </span>
+                      </div>
+                      <div className="w-full bg-muted rounded-full h-3">
+                        <div 
+                          className="bg-primary h-3 rounded-full transition-all duration-500"
+                          style={{ width: `${floor.rate}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle>Revenue Trends</CardTitle>
-              <CardDescription>Monthly revenue comparison</CardDescription>
+              <CardTitle>Overall Occupancy</CardTitle>
+              <CardDescription>Total stall distribution</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                  <span className="font-medium">Current Month</span>
-                  <span className="text-foreground font-bold">₱{totalRevenue.toLocaleString()}</span>
-                </div>
-                <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                  <span className="font-medium">Previous Month</span>
-                  <span className="text-muted-foreground">Coming soon</span>
-                </div>
+              <div className="h-[250px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={pieData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={90}
+                      paddingAngle={5}
+                      dataKey="value"
+                      label={({ name, value }) => `${name}: ${value}`}
+                    >
+                      {pieData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
               </div>
             </CardContent>
           </Card>
         </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Revenue Trends (Last 6 Months)</CardTitle>
+            <CardDescription>Monthly payment revenue from completed payments</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={monthlyRevenue}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                  <XAxis dataKey="month" className="text-xs" />
+                  <YAxis 
+                    tickFormatter={(value) => `₱${value.toLocaleString()}`}
+                    className="text-xs"
+                  />
+                  <Tooltip 
+                    formatter={(value: number) => [`₱${value.toLocaleString()}`, "Revenue"]}
+                    contentStyle={{ 
+                      backgroundColor: 'hsl(var(--card))', 
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '8px'
+                    }}
+                  />
+                  <Bar dataKey="revenue" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Calendar className="h-5 w-5" />
+              Recent Payments
+            </CardTitle>
+            <CardDescription>Latest payment transactions</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {payments.length === 0 ? (
+              <p className="text-muted-foreground text-center py-8">No payment records found</p>
+            ) : (
+              <div className="space-y-3">
+                {payments.slice(0, 10).map((payment) => (
+                  <div 
+                    key={payment.id} 
+                    className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
+                  >
+                    <div>
+                      <p className="font-medium">{payment.tenant_name}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {format(new Date(payment.payment_date), "MMM dd, yyyy")} • {payment.payment_method || "N/A"}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold text-foreground">₱{Number(payment.amount).toLocaleString()}</p>
+                      <span className={`text-xs px-2 py-1 rounded-full ${
+                        payment.status === "completed" 
+                          ? "bg-green-500/20 text-green-600" 
+                          : payment.status === "pending"
+                          ? "bg-yellow-500/20 text-yellow-600"
+                          : "bg-muted text-muted-foreground"
+                      }`}>
+                        {payment.status || "unknown"}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </DashboardLayout>
   );
