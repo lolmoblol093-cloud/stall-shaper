@@ -472,7 +472,8 @@ export function DirectoryMap({ highlightedStallCode }: DirectoryMapProps) {
     'b51', 'b52', 'b53', 'b54', 'b55', 'b56', 'b57', 'b58', 'b59', 'b60',
     'b61', 'b62', 'b63', 'b64', 'b65', 'b66', 'b67', 'b68', 'b69', 'b70',
     'b71', 'b72', 'b73', 'b74', 'b75', 'b76', 'b77', 'b78', 'b79', 'b80',
-    'b81', 'b82', 'b83', 'b84', 'b85', 'b86'
+    'b81', 'b82', 'b83', 'b84', 'b85', 'b86', 'b87', 'b88', 'b89', 'b90',
+    'b91', 'b92', 'b93', 'b94', 'b95', 'b96'
   ];
                   
                   const groundFloorAreas = [
