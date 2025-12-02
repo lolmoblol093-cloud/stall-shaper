@@ -241,12 +241,21 @@ const TenantsPage = () => {
 
       if (error) throw error;
 
-      // If deactivating and tenant has a stall, free up the stall
-      if (newStatus === "inactive" && tenant.stall_number) {
-        await supabase
-          .from("stalls")
-          .update({ occupancy_status: "vacant" })
-          .eq("stall_code", tenant.stall_number);
+      // Update stall occupancy based on new status
+      if (tenant.stall_number) {
+        if (newStatus === "inactive") {
+          // Deactivating - free up the stall
+          await supabase
+            .from("stalls")
+            .update({ occupancy_status: "vacant" })
+            .eq("stall_code", tenant.stall_number);
+        } else {
+          // Activating - mark stall as occupied
+          await supabase
+            .from("stalls")
+            .update({ occupancy_status: "occupied" })
+            .eq("stall_code", tenant.stall_number);
+        }
       }
 
       toast({
