@@ -16,8 +16,11 @@ import {
   Store,
   Layers,
   ChevronRight,
-  Sparkles
+  Sparkles,
+  Map,
+  List
 } from "lucide-react";
+import { DirectoryMap } from "@/components/DirectoryMap";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -47,6 +50,7 @@ const GuestView = () => {
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   const [viewMode, setViewMode] = useState<"directory" | "available">("directory");
+  const [displayMode, setDisplayMode] = useState<"list" | "map">("list");
   const [selectedFloor, setSelectedFloor] = useState<string>("all");
   const [session, setSession] = useState<Session | null>(null);
   const [businesses, setBusinesses] = useState<BusinessListing[]>([]);
@@ -287,22 +291,59 @@ const GuestView = () => {
             </div>
           </div>
 
-          {/* Floor Filter */}
-          <div className="flex items-center justify-center gap-2 flex-wrap">
-            <Layers className="h-4 w-4 text-muted-foreground" />
-            {floors.map((floor) => (
+          {/* Floor Filter & Display Toggle */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-2 flex-wrap justify-center">
+              <Layers className="h-4 w-4 text-muted-foreground" />
+              {floors.map((floor) => (
+                <Button
+                  key={floor}
+                  variant={selectedFloor === floor ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setSelectedFloor(floor)}
+                  className="rounded-full"
+                >
+                  {floor === "all" ? "All Floors" : floor}
+                </Button>
+              ))}
+            </div>
+
+            {/* List/Map Toggle */}
+            <div className="inline-flex p-1 bg-muted rounded-lg">
               <Button
-                key={floor}
-                variant={selectedFloor === floor ? "default" : "outline"}
+                variant={displayMode === "list" ? "default" : "ghost"}
                 size="sm"
-                onClick={() => setSelectedFloor(floor)}
-                className="rounded-full"
+                onClick={() => setDisplayMode("list")}
+                className="rounded-md"
               >
-                {floor === "all" ? "All Floors" : floor}
+                <List className="h-4 w-4 mr-1.5" />
+                List
               </Button>
-            ))}
+              <Button
+                variant={displayMode === "map" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setDisplayMode("map")}
+                className="rounded-md"
+              >
+                <Map className="h-4 w-4 mr-1.5" />
+                Map
+              </Button>
+            </div>
           </div>
         </div>
+
+        {/* Map View */}
+        {displayMode === "map" && (
+          <Card className="overflow-hidden">
+            <CardContent className="p-4 sm:p-6">
+              <DirectoryMap />
+            </CardContent>
+          </Card>
+        )}
+
+        {/* List Views */}
+        {displayMode === "list" && (
+          <>
 
         {/* Directory View */}
         {viewMode === "directory" && (
@@ -488,6 +529,8 @@ const GuestView = () => {
               </Card>
             )}
           </>
+        )}
+        </>
         )}
       </div>
 
