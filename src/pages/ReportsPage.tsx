@@ -93,9 +93,17 @@ const ReportsPage = () => {
       setOccupiedStallsCount(stalls?.filter(s => s.occupancy_status === "occupied").length || 0);
       
       // Calculate floor occupancy breakdown
+      const normalizeFloorName = (floor: string): string => {
+        const lowerFloor = floor.toLowerCase().trim();
+        if (lowerFloor === "ground" || lowerFloor === "ground floor") return "Ground Floor";
+        if (lowerFloor === "second" || lowerFloor === "second floor") return "Second Floor";
+        if (lowerFloor === "third" || lowerFloor === "third floor") return "Third Floor";
+        return floor;
+      };
+
       const floorData: { [key: string]: { occupied: number; vacant: number } } = {};
       stalls?.forEach(stall => {
-        const floor = stall.floor || "Unknown";
+        const floor = normalizeFloorName(stall.floor || "Unknown");
         if (!floorData[floor]) {
           floorData[floor] = { occupied: 0, vacant: 0 };
         }
