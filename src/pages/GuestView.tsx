@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { 
@@ -9,11 +9,14 @@ import {
   Search, 
   MapPin, 
   Phone, 
-  Clock, 
   Home,
   Users,
   Mail,
-  LogOut
+  LogOut,
+  Store,
+  Layers,
+  ChevronRight,
+  Sparkles
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -44,10 +47,13 @@ const GuestView = () => {
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   const [viewMode, setViewMode] = useState<"directory" | "available">("directory");
+  const [selectedFloor, setSelectedFloor] = useState<string>("all");
   const [session, setSession] = useState<Session | null>(null);
   const [businesses, setBusinesses] = useState<BusinessListing[]>([]);
   const [availableStalls, setAvailableStalls] = useState<AvailableStall[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const floors = ["all", "Ground Floor", "Second Floor", "Third Floor"];
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -60,7 +66,6 @@ const GuestView = () => {
 
     fetchData();
 
-    // Set up realtime subscriptions
     const tenantsChannel = supabase
       .channel('tenants-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tenants' }, () => {
@@ -82,10 +87,17 @@ const GuestView = () => {
     };
   }, []);
 
+  const normalizeFloorName = (floor: string): string => {
+    const lowerFloor = floor.toLowerCase().trim();
+    if (lowerFloor === "ground" || lowerFloor === "ground floor") return "Ground Floor";
+    if (lowerFloor === "second" || lowerFloor === "second floor") return "Second Floor";
+    if (lowerFloor === "third" || lowerFloor === "third floor") return "Third Floor";
+    return floor;
+  };
+
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Fetch active tenants with their stall info
       const { data: tenantsData, error: tenantsError } = await supabase
         .from('tenants')
         .select('*')
@@ -93,14 +105,12 @@ const GuestView = () => {
 
       if (tenantsError) throw tenantsError;
 
-      // Fetch all stalls
       const { data: stallsData, error: stallsError } = await supabase
         .from('stalls')
         .select('*');
 
       if (stallsError) throw stallsError;
 
-      // Map tenants to business listings
       const businessListings: BusinessListing[] = (tenantsData || []).map(tenant => {
         const stall = stallsData?.find(s => s.stall_code === tenant.stall_number);
         return {
@@ -108,20 +118,19 @@ const GuestView = () => {
           stallCode: tenant.stall_number || '',
           businessName: tenant.business_name,
           ownerName: tenant.contact_person,
-          floor: stall?.floor || 'N/A',
+          floor: normalizeFloorName(stall?.floor || 'N/A'),
           contactNumber: tenant.phone || undefined,
           email: tenant.email || undefined,
           monthlyRent: tenant.monthly_rent ? Number(tenant.monthly_rent) : undefined,
         };
       });
 
-      // Filter available stalls (vacant ones)
       const availableStallsList: AvailableStall[] = (stallsData || [])
         .filter(stall => stall.occupancy_status === 'vacant')
         .map(stall => ({
           id: stall.id,
           stallCode: stall.stall_code,
-          floor: stall.floor,
+          floor: normalizeFloorName(stall.floor),
           floorSize: stall.floor_size || undefined,
           monthlyRent: Number(stall.monthly_rent),
         }));
@@ -148,10 +157,8 @@ const GuestView = () => {
         description: "You have been logged out successfully",
       });
     } catch (error) {
-      // Session already invalid, just clear local state
       console.log("Logout error (ignoring):", error);
     }
-    // Always navigate to login regardless of error
     navigate("/login");
   };
 
@@ -161,149 +168,218 @@ const GuestView = () => {
       business.ownerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       business.stallCode.toLowerCase().includes(searchTerm.toLowerCase());
     
-    return matchesSearch;
+    const matchesFloor = selectedFloor === "all" || business.floor === selectedFloor;
+    
+    return matchesSearch && matchesFloor;
   });
 
+  const filteredStalls = availableStalls.filter(stall => {
+    const matchesFloor = selectedFloor === "all" || stall.floor === selectedFloor;
+    return matchesFloor;
+  });
+
+  const getFloorColor = (floor: string) => {
+    switch (floor) {
+      case "Ground Floor": return "bg-emerald-500/10 text-emerald-600 border-emerald-500/20";
+      case "Second Floor": return "bg-blue-500/10 text-blue-600 border-blue-500/20";
+      case "Third Floor": return "bg-purple-500/10 text-purple-600 border-purple-500/20";
+      default: return "bg-muted text-muted-foreground";
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30">
       {/* Header */}
-      <header className="bg-card border-b border-border sticky top-0 z-50">
+      <header className="bg-card/80 backdrop-blur-md border-b border-border sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <Building2 className="h-8 w-8 text-primary" />
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-primary/10 rounded-xl">
+                <Building2 className="h-7 w-7 text-primary" />
+              </div>
               <div>
-                <h1 className="text-2xl font-bold text-foreground">Marketplace Directory</h1>
-                <p className="text-sm text-muted-foreground">Discover local businesses and services</p>
+                <h1 className="text-xl font-bold text-foreground">Marketplace</h1>
+                <p className="text-xs text-muted-foreground hidden sm:block">Business Directory</p>
               </div>
             </div>
             {session ? (
               <Button
                 variant="outline"
+                size="sm"
                 onClick={handleLogout}
-                className="flex items-center space-x-2"
               >
-                <LogOut className="h-4 w-4" />
-                <span>Logout</span>
+                <LogOut className="h-4 w-4 mr-2" />
+                Logout
               </Button>
             ) : (
               <Button
                 variant="outline"
+                size="sm"
                 onClick={() => navigate("/login")}
-                className="flex items-center space-x-2"
               >
-                <Users className="h-4 w-4" />
-                <span>Admin Login</span>
+                <Users className="h-4 w-4 mr-2" />
+                Admin
               </Button>
             )}
           </div>
         </div>
       </header>
 
-      <div className="container mx-auto px-4 py-8 space-y-8">
-        {/* Navigation Tabs */}
-        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-          <div className="flex space-x-1 bg-muted rounded-lg p-1">
-            <Button
-              variant={viewMode === "directory" ? "default" : "ghost"}
-              onClick={() => setViewMode("directory")}
-              className="px-6"
-            >
-              <MapPin className="h-4 w-4 mr-2" />
-              Business Directory
-            </Button>
-            <Button
-              variant={viewMode === "available" ? "default" : "ghost"}
-              onClick={() => setViewMode("available")}
-              className="px-6"
-            >
-              <Home className="h-4 w-4 mr-2" />
-              Available Stalls
-            </Button>
+      {/* Hero Section */}
+      <div className="bg-gradient-to-r from-primary/5 via-primary/10 to-primary/5 border-b border-border">
+        <div className="container mx-auto px-4 py-12">
+          <div className="text-center space-y-4 max-w-2xl mx-auto">
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-primary/10 rounded-full text-primary text-sm font-medium">
+              <Sparkles className="h-4 w-4" />
+              Discover Local Businesses
+            </div>
+            <h2 className="text-3xl sm:text-4xl font-bold text-foreground">
+              Find Your Perfect Space
+            </h2>
+            <p className="text-muted-foreground">
+              Browse our directory of thriving businesses or find available stalls for your next venture.
+            </p>
           </div>
 
-          {/* Search Bar */}
-          <div className="relative w-full sm:w-auto">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search businesses or services..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 w-full sm:w-80"
-            />
+          {/* Search */}
+          <div className="max-w-xl mx-auto mt-8">
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+              <Input
+                placeholder="Search businesses, stalls, or owners..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-12 h-12 text-base bg-background border-border shadow-sm"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="container mx-auto px-4 py-8 space-y-6">
+        {/* Navigation & Filters */}
+        <div className="flex flex-col gap-4">
+          {/* View Mode Toggle */}
+          <div className="flex items-center justify-center">
+            <div className="inline-flex p-1 bg-muted rounded-xl">
+              <Button
+                variant={viewMode === "directory" ? "default" : "ghost"}
+                onClick={() => setViewMode("directory")}
+                className="rounded-lg"
+              >
+                <Store className="h-4 w-4 mr-2" />
+                Directory
+                <Badge variant="secondary" className="ml-2 bg-background/50">
+                  {businesses.length}
+                </Badge>
+              </Button>
+              <Button
+                variant={viewMode === "available" ? "default" : "ghost"}
+                onClick={() => setViewMode("available")}
+                className="rounded-lg"
+              >
+                <Home className="h-4 w-4 mr-2" />
+                Available
+                <Badge variant="secondary" className="ml-2 bg-background/50">
+                  {availableStalls.length}
+                </Badge>
+              </Button>
+            </div>
+          </div>
+
+          {/* Floor Filter */}
+          <div className="flex items-center justify-center gap-2 flex-wrap">
+            <Layers className="h-4 w-4 text-muted-foreground" />
+            {floors.map((floor) => (
+              <Button
+                key={floor}
+                variant={selectedFloor === floor ? "default" : "outline"}
+                size="sm"
+                onClick={() => setSelectedFloor(floor)}
+                className="rounded-full"
+              >
+                {floor === "all" ? "All Floors" : floor}
+              </Button>
+            ))}
           </div>
         </div>
 
+        {/* Directory View */}
         {viewMode === "directory" && (
           <>
             {loading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {[1, 2, 3, 4, 5, 6].map((i) => (
-                  <Card key={i}>
-                    <CardHeader>
-                      <Skeleton className="h-6 w-3/4" />
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+                  <Card key={i} className="overflow-hidden">
+                    <CardContent className="p-4 space-y-3">
+                      <Skeleton className="h-5 w-3/4" />
                       <Skeleton className="h-4 w-1/2" />
-                    </CardHeader>
-                    <CardContent className="space-y-4">
                       <Skeleton className="h-4 w-full" />
-                      <Skeleton className="h-4 w-full" />
-                      <Skeleton className="h-4 w-2/3" />
                     </CardContent>
                   </Card>
                 ))}
               </div>
             ) : filteredBusinesses.length === 0 ? (
-              <Card>
+              <Card className="border-dashed">
                 <CardContent className="p-12 text-center">
-                  <Building2 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <div className="p-4 bg-muted rounded-full w-fit mx-auto mb-4">
+                    <Store className="h-8 w-8 text-muted-foreground" />
+                  </div>
                   <h3 className="text-lg font-semibold mb-2">No businesses found</h3>
-                  <p className="text-muted-foreground">
+                  <p className="text-muted-foreground text-sm">
                     {searchTerm ? "Try adjusting your search terms" : "No active tenants at the moment"}
                   </p>
                 </CardContent>
               </Card>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {filteredBusinesses.map((business) => (
-                  <Card key={business.id} className="hover:shadow-lg transition-shadow">
-                    <CardHeader>
-                      <div className="flex items-start justify-between">
-                        <div className="space-y-1">
-                          <CardTitle className="text-lg">{business.businessName}</CardTitle>
-                          <CardDescription>Stall {business.stallCode} • {business.floor}</CardDescription>
+                  <Card 
+                    key={business.id} 
+                    className="group hover:shadow-lg hover:border-primary/20 transition-all duration-300 overflow-hidden"
+                  >
+                    <CardContent className="p-4">
+                      <div className="space-y-3">
+                        {/* Header */}
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <h3 className="font-semibold text-foreground truncate group-hover:text-primary transition-colors">
+                              {business.businessName}
+                            </h3>
+                            <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                              <MapPin className="h-3 w-3" />
+                              Stall {business.stallCode}
+                            </p>
+                          </div>
+                          <Badge 
+                            variant="outline" 
+                            className={`text-xs shrink-0 ${getFloorColor(business.floor)}`}
+                          >
+                            {business.floor.replace(" Floor", "")}
+                          </Badge>
                         </div>
-                        <Badge variant="secondary">
-                          Active
-                        </Badge>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="space-y-2">
-                        <div className="flex items-center space-x-2 text-sm">
-                          <Users className="h-4 w-4 text-muted-foreground" />
-                          <span>Owner: {business.ownerName}</span>
+
+                        {/* Details */}
+                        <div className="space-y-1.5 text-sm">
+                          <div className="flex items-center gap-2 text-muted-foreground">
+                            <Users className="h-3.5 w-3.5 shrink-0" />
+                            <span className="truncate">{business.ownerName}</span>
+                          </div>
+                          
+                          {business.contactNumber && (
+                            <div className="flex items-center gap-2 text-muted-foreground">
+                              <Phone className="h-3.5 w-3.5 shrink-0" />
+                              <span>{business.contactNumber}</span>
+                            </div>
+                          )}
+
+                          {business.email && (
+                            <div className="flex items-center gap-2 text-muted-foreground">
+                              <Mail className="h-3.5 w-3.5 shrink-0" />
+                              <span className="truncate">{business.email}</span>
+                            </div>
+                          )}
                         </div>
-                        
-                        {business.contactNumber && (
-                          <div className="flex items-center space-x-2 text-sm">
-                            <Phone className="h-4 w-4 text-muted-foreground" />
-                            <span>{business.contactNumber}</span>
-                          </div>
-                        )}
-
-                        {business.email && (
-                          <div className="flex items-center space-x-2 text-sm">
-                            <Mail className="h-4 w-4 text-muted-foreground" />
-                            <span className="truncate">{business.email}</span>
-                          </div>
-                        )}
-
-                        {business.monthlyRent && (
-                          <div className="flex items-center space-x-2 text-sm">
-                            <Home className="h-4 w-4 text-muted-foreground" />
-                            <span>₱{business.monthlyRent.toLocaleString()}/month</span>
-                          </div>
-                        )}
                       </div>
                     </CardContent>
                   </Card>
@@ -313,102 +389,103 @@ const GuestView = () => {
           </>
         )}
 
+        {/* Available Stalls View */}
         {viewMode === "available" && (
           <>
-            <div className="text-center space-y-4">
-              <h2 className="text-3xl font-bold text-foreground">Available Stalls for Rent</h2>
-              <p className="text-muted-foreground max-w-2xl mx-auto">
-                Prime commercial spaces available for new businesses. Contact us to schedule a viewing 
-                and start your entrepreneurial journey in our thriving marketplace.
-              </p>
-            </div>
-
             {loading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {[1, 2, 3, 4].map((i) => (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {[1, 2, 3, 4, 5, 6].map((i) => (
                   <Card key={i}>
-                    <CardHeader>
-                      <Skeleton className="h-8 w-1/2" />
-                      <Skeleton className="h-4 w-1/3" />
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <Skeleton className="h-16 w-full" />
-                      <div className="flex space-x-2">
-                        <Skeleton className="h-10 flex-1" />
-                        <Skeleton className="h-10 flex-1" />
+                    <CardContent className="p-5 space-y-4">
+                      <Skeleton className="h-6 w-1/2" />
+                      <Skeleton className="h-8 w-2/3" />
+                      <Skeleton className="h-10 w-full" />
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : filteredStalls.length === 0 ? (
+              <Card className="border-dashed">
+                <CardContent className="p-12 text-center">
+                  <div className="p-4 bg-muted rounded-full w-fit mx-auto mb-4">
+                    <Home className="h-8 w-8 text-muted-foreground" />
+                  </div>
+                  <h3 className="text-lg font-semibold mb-2">No stalls available</h3>
+                  <p className="text-muted-foreground text-sm">
+                    {selectedFloor !== "all" 
+                      ? `No available stalls on ${selectedFloor}. Try viewing all floors.`
+                      : "All stalls are currently occupied. Check back later."
+                    }
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredStalls.map((stall) => (
+                  <Card 
+                    key={stall.id} 
+                    className="group hover:shadow-lg hover:border-primary/20 transition-all duration-300 overflow-hidden"
+                  >
+                    <CardContent className="p-5">
+                      <div className="space-y-4">
+                        {/* Header */}
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <Badge 
+                              variant="outline" 
+                              className={`mb-2 ${getFloorColor(stall.floor)}`}
+                            >
+                              {stall.floor}
+                            </Badge>
+                            <h3 className="text-xl font-bold text-foreground">
+                              Stall {stall.stallCode}
+                            </h3>
+                            {stall.floorSize && (
+                              <p className="text-sm text-muted-foreground mt-0.5">
+                                Size: {stall.floorSize}
+                              </p>
+                            )}
+                          </div>
+                          <div className="text-right">
+                            <div className="text-2xl font-bold text-primary">
+                              ₱{stall.monthlyRent.toLocaleString()}
+                            </div>
+                            <div className="text-xs text-muted-foreground">per month</div>
+                          </div>
+                        </div>
+
+                        {/* CTA */}
+                        <Button className="w-full group-hover:bg-primary/90" size="sm">
+                          Inquire Now
+                          <ChevronRight className="h-4 w-4 ml-1" />
+                        </Button>
                       </div>
                     </CardContent>
                   </Card>
                 ))}
               </div>
-            ) : availableStalls.length === 0 ? (
-              <Card>
-                <CardContent className="p-12 text-center">
-                  <Home className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">No stalls available</h3>
-                  <p className="text-muted-foreground">
-                    All stalls are currently occupied. Check back later for availability.
+            )}
+
+            {/* Contact CTA */}
+            {availableStalls.length > 0 && (
+              <Card className="bg-gradient-to-r from-primary/5 via-primary/10 to-primary/5 border-primary/20">
+                <CardContent className="p-8 text-center space-y-4">
+                  <h3 className="text-2xl font-bold text-foreground">Ready to Start Your Business?</h3>
+                  <p className="text-muted-foreground max-w-md mx-auto">
+                    Contact our leasing team to schedule a tour and find the perfect space.
                   </p>
+                  <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                    <Button size="lg">
+                      <Phone className="h-4 w-4 mr-2" />
+                      Call Now
+                    </Button>
+                    <Button size="lg" variant="outline">
+                      <Mail className="h-4 w-4 mr-2" />
+                      Send Inquiry
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
-            ) : (
-              <>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {availableStalls.map((stall) => (
-                    <Card key={stall.id} className="hover:shadow-lg transition-shadow">
-                      <CardHeader>
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <CardTitle className="text-xl">Stall {stall.stallCode}</CardTitle>
-                            <CardDescription>{stall.floor}{stall.floorSize ? ` • ${stall.floorSize}` : ''}</CardDescription>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-2xl font-bold text-primary">₱{stall.monthlyRent.toLocaleString()}</div>
-                            <div className="text-sm text-muted-foreground">per month</div>
-                          </div>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="space-y-4">
-                        <Badge variant="outline" className="w-fit">
-                          <Home className="h-3 w-3 mr-1" />
-                          Available Now
-                        </Badge>
-                        
-                        <div className="flex space-x-2">
-                          <Button className="flex-1">
-                            <Phone className="h-4 w-4 mr-2" />
-                            Contact Us
-                          </Button>
-                          <Button variant="outline" className="flex-1">
-                            <Mail className="h-4 w-4 mr-2" />
-                            Inquire
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-
-                <Card className="bg-muted/50">
-                  <CardContent className="p-8 text-center space-y-4">
-                    <h3 className="text-2xl font-bold text-foreground">Interested in Renting?</h3>
-                    <p className="text-muted-foreground max-w-md mx-auto">
-                      Contact our leasing team to schedule a tour, discuss rental terms, 
-                      and find the perfect space for your business.
-                    </p>
-                    <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                      <Button size="lg" className="px-8">
-                        <Phone className="h-5 w-5 mr-2" />
-                        Call +63 912 RENT NOW
-                      </Button>
-                      <Button size="lg" variant="outline" className="px-8">
-                        <Mail className="h-5 w-5 mr-2" />
-                        Email Inquiry
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              </>
             )}
           </>
         )}
@@ -417,35 +494,14 @@ const GuestView = () => {
       {/* Footer */}
       <footer className="bg-card border-t border-border mt-16">
         <div className="container mx-auto px-4 py-8">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div>
-              <div className="flex items-center space-x-2 mb-4">
-                <Building2 className="h-6 w-6 text-primary" />
-                <span className="font-bold text-lg">Marketplace</span>
-              </div>
-              <p className="text-muted-foreground text-sm">
-                A thriving community marketplace connecting local businesses with customers.
-              </p>
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <Building2 className="h-5 w-5 text-primary" />
+              <span className="font-semibold">Marketplace</span>
             </div>
-            <div>
-              <h4 className="font-semibold mb-3">Quick Links</h4>
-              <div className="space-y-2 text-sm">
-                <div className="text-muted-foreground cursor-pointer hover:text-foreground">Business Directory</div>
-                <div className="text-muted-foreground cursor-pointer hover:text-foreground">Available Stalls</div>
-                <div className="text-muted-foreground cursor-pointer hover:text-foreground">Rental Information</div>
-              </div>
-            </div>
-            <div>
-              <h4 className="font-semibold mb-3">Contact Info</h4>
-              <div className="space-y-2 text-sm text-muted-foreground">
-                <div>📍 123 Market Street, City Center</div>
-                <div>📞 +63 912 RENT NOW</div>
-                <div>✉️ info@marketplace.com</div>
-              </div>
-            </div>
-          </div>
-          <div className="border-t border-border mt-8 pt-4 text-center text-sm text-muted-foreground">
-            © 2024 Marketplace. All rights reserved.
+            <p className="text-sm text-muted-foreground text-center">
+              © 2024 Marketplace Directory. All rights reserved.
+            </p>
           </div>
         </div>
       </footer>
