@@ -206,25 +206,35 @@ const GuestView = () => {
                 <p className="text-xs text-muted-foreground hidden sm:block">Business Directory</p>
               </div>
             </div>
-            {session ? (
+            <div className="flex items-center gap-2">
               <Button
                 variant="outline"
                 size="sm"
-                onClick={handleLogout}
+                onClick={() => navigate("/tenant-login")}
               >
-                <LogOut className="h-4 w-4 mr-2" />
-                Logout
+                <Store className="h-4 w-4 mr-2" />
+                Tenant Portal
               </Button>
-            ) : (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => navigate("/login")}
-              >
-                <Users className="h-4 w-4 mr-2" />
-                Admin
-              </Button>
-            )}
+              {session ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleLogout}
+                >
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Logout
+                </Button>
+              ) : (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => navigate("/login")}
+                >
+                  <Users className="h-4 w-4 mr-2" />
+                  Admin
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </header>

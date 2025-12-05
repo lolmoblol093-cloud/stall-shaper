@@ -14,6 +14,8 @@ import DirectoryPage from "./pages/DirectoryPage";
 import PaymentsPage from "./pages/PaymentsPage";
 import SettingsPage from "./pages/SettingsPage";
 import ReportsPage from "./pages/ReportsPage";
+import TenantLogin from "./pages/TenantLogin";
+import TenantPortal from "./pages/TenantPortal";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
@@ -28,6 +30,8 @@ const App = () => (
           <Route path="/" element={<GuestView />} />
           <Route path="/guest" element={<GuestView />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/tenant-login" element={<TenantLogin />} />
+          <Route path="/tenant-portal" element={<TenantPortal />} />
           <Route 
             path="/dashboard" 
             element={
