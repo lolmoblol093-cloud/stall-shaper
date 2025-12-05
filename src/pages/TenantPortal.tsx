@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { 
   Store, 
@@ -15,15 +16,17 @@ import {
   Mail, 
   CreditCard,
   MapPin,
-  Clock,
   User,
   Receipt,
   CheckCircle,
   AlertCircle,
-  Loader2
+  Loader2,
+  AlertTriangle,
+  TrendingUp,
+  RefreshCw
 } from "lucide-react";
 import { Session } from "@supabase/supabase-js";
-import { format } from "date-fns";
+import { format, differenceInDays, isPast, isWithinInterval, addDays } from "date-fns";
 
 interface TenantData {
   id: string;
@@ -60,9 +63,11 @@ const TenantPortal = () => {
   const { toast } = useToast();
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [tenant, setTenant] = useState<TenantData | null>(null);
   const [stall, setStall] = useState<StallData | null>(null);
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [tenantUserId, setTenantUserId] = useState<string | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -84,9 +89,59 @@ const TenantPortal = () => {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Real-time subscription for tenant and payment updates
+  useEffect(() => {
+    if (!tenant?.id) return;
+
+    const tenantChannel = supabase
+      .channel('tenant-portal-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'tenants',
+          filter: `id=eq.${tenant.id}`
+        },
+        (payload) => {
+          if (payload.eventType === 'UPDATE') {
+            setTenant(payload.new as TenantData);
+            toast({
+              title: "Information Updated",
+              description: "Your tenant information has been updated.",
+            });
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'payments',
+          filter: `tenant_id=eq.${tenant.id}`
+        },
+        (payload) => {
+          if (payload.eventType === 'INSERT') {
+            setPayments(prev => [payload.new as Payment, ...prev]);
+            toast({
+              title: "New Payment Recorded",
+              description: `A payment of ₱${(payload.new as Payment).amount.toLocaleString()} has been recorded.`,
+            });
+          } else if (payload.eventType === 'UPDATE') {
+            setPayments(prev => prev.map(p => p.id === (payload.new as Payment).id ? payload.new as Payment : p));
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(tenantChannel);
+    };
+  }, [tenant?.id]);
+
   const fetchTenantData = async (userId: string) => {
     try {
-      // Get tenant link
       const { data: tenantUser } = await supabase
         .from("tenant_users")
         .select("tenant_id")
@@ -103,7 +158,8 @@ const TenantPortal = () => {
         return;
       }
 
-      // Fetch tenant details
+      setTenantUserId(tenantUser.tenant_id);
+
       const { data: tenantData } = await supabase
         .from("tenants")
         .select("*")
@@ -113,7 +169,6 @@ const TenantPortal = () => {
       if (tenantData) {
         setTenant(tenantData);
 
-        // Fetch stall details if tenant has a stall
         if (tenantData.stall_number) {
           const { data: stallData } = await supabase
             .from("stalls")
@@ -126,13 +181,11 @@ const TenantPortal = () => {
           }
         }
 
-        // Fetch payment history
         const { data: paymentsData } = await supabase
           .from("payments")
           .select("*")
           .eq("tenant_id", tenantUser.tenant_id)
-          .order("payment_date", { ascending: false })
-          .limit(10);
+          .order("payment_date", { ascending: false });
 
         if (paymentsData) {
           setPayments(paymentsData);
@@ -145,10 +198,67 @@ const TenantPortal = () => {
     }
   };
 
+  const handleRefresh = async () => {
+    if (!session?.user.id) return;
+    setRefreshing(true);
+    await fetchTenantData(session.user.id);
+    setRefreshing(false);
+    toast({
+      title: "Refreshed",
+      description: "Your data has been refreshed.",
+    });
+  };
+
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     navigate("/tenant-login");
   };
+
+  // Calculate payment statistics
+  const paymentStats = React.useMemo(() => {
+    const completed = payments.filter(p => p.status === "completed");
+    const pending = payments.filter(p => p.status === "pending");
+    const totalPaid = completed.reduce((sum, p) => sum + p.amount, 0);
+    const totalPending = pending.reduce((sum, p) => sum + p.amount, 0);
+    
+    const currentYear = new Date().getFullYear();
+    const thisYearPayments = completed.filter(p => 
+      new Date(p.payment_date).getFullYear() === currentYear
+    );
+    const thisYearTotal = thisYearPayments.reduce((sum, p) => sum + p.amount, 0);
+
+    return {
+      totalPaid,
+      totalPending,
+      thisYearTotal,
+      completedCount: completed.length,
+      pendingCount: pending.length
+    };
+  }, [payments]);
+
+  // Calculate lease status
+  const leaseStatus = React.useMemo(() => {
+    if (!tenant?.lease_end_date) return null;
+    
+    const endDate = new Date(tenant.lease_end_date);
+    const today = new Date();
+    const daysRemaining = differenceInDays(endDate, today);
+    
+    const isExpired = isPast(endDate);
+    const isExpiringSoon = !isExpired && daysRemaining <= 30;
+    
+    return {
+      daysRemaining,
+      isExpired,
+      isExpiringSoon,
+      percentage: tenant.lease_start_date 
+        ? Math.min(100, Math.max(0, 
+            (differenceInDays(today, new Date(tenant.lease_start_date)) / 
+             differenceInDays(endDate, new Date(tenant.lease_start_date))) * 100
+          ))
+        : 0
+    };
+  }, [tenant]);
 
   if (loading) {
     return (
@@ -172,10 +282,15 @@ const TenantPortal = () => {
               <p className="text-xs text-muted-foreground">{tenant?.business_name}</p>
             </div>
           </div>
-          <Button variant="outline" size="sm" onClick={handleSignOut}>
-            <LogOut className="h-4 w-4 mr-2" />
-            Sign Out
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={handleRefresh} disabled={refreshing}>
+              <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleSignOut}>
+              <LogOut className="h-4 w-4 mr-2" />
+              Sign Out
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -184,6 +299,75 @@ const TenantPortal = () => {
         <div className="text-center py-4">
           <h2 className="text-2xl font-bold">Welcome, {tenant?.contact_person}!</h2>
           <p className="text-muted-foreground">Manage your stall and view your payment history</p>
+        </div>
+
+        {/* Lease Alert */}
+        {leaseStatus?.isExpired && (
+          <Card className="border-destructive bg-destructive/10">
+            <CardContent className="flex items-center gap-4 py-4">
+              <AlertTriangle className="h-8 w-8 text-destructive" />
+              <div>
+                <p className="font-semibold text-destructive">Lease Expired</p>
+                <p className="text-sm text-muted-foreground">
+                  Your lease has expired. Please contact the property manager to renew.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+        
+        {leaseStatus?.isExpiringSoon && !leaseStatus?.isExpired && (
+          <Card className="border-yellow-500 bg-yellow-500/10">
+            <CardContent className="flex items-center gap-4 py-4">
+              <AlertCircle className="h-8 w-8 text-yellow-600" />
+              <div>
+                <p className="font-semibold text-yellow-700 dark:text-yellow-400">Lease Expiring Soon</p>
+                <p className="text-sm text-muted-foreground">
+                  Your lease expires in {leaseStatus.daysRemaining} days. Please contact the property manager to renew.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-2 mb-2">
+                <TrendingUp className="h-4 w-4 text-green-600" />
+                <span className="text-sm text-muted-foreground">Total Paid</span>
+              </div>
+              <p className="text-2xl font-bold text-green-600">₱{paymentStats.totalPaid.toLocaleString()}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-2 mb-2">
+                <AlertCircle className="h-4 w-4 text-yellow-600" />
+                <span className="text-sm text-muted-foreground">Pending</span>
+              </div>
+              <p className="text-2xl font-bold text-yellow-600">₱{paymentStats.totalPending.toLocaleString()}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-2 mb-2">
+                <Receipt className="h-4 w-4 text-primary" />
+                <span className="text-sm text-muted-foreground">This Year</span>
+              </div>
+              <p className="text-2xl font-bold">₱{paymentStats.thisYearTotal.toLocaleString()}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-2 mb-2">
+                <CheckCircle className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">Payments</span>
+              </div>
+              <p className="text-2xl font-bold">{paymentStats.completedCount}</p>
+            </CardContent>
+          </Card>
         </div>
 
         <div className="grid md:grid-cols-2 gap-6">
@@ -297,7 +481,7 @@ const TenantPortal = () => {
                   <Separator />
                   <div className="flex items-center gap-3">
                     <Calendar className="h-4 w-4 text-muted-foreground" />
-                    <div>
+                    <div className="flex-1">
                       <p className="text-sm text-muted-foreground">Lease Period</p>
                       <p className="font-medium">
                         {tenant.lease_start_date 
@@ -310,6 +494,18 @@ const TenantPortal = () => {
                           : "N/A"
                         }
                       </p>
+                      {leaseStatus && tenant.lease_start_date && (
+                        <div className="mt-2">
+                          <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                            <span>Lease Progress</span>
+                            <span>{leaseStatus.daysRemaining > 0 ? `${leaseStatus.daysRemaining} days left` : 'Expired'}</span>
+                          </div>
+                          <Progress 
+                            value={leaseStatus.percentage} 
+                            className={`h-2 ${leaseStatus.isExpired ? '[&>div]:bg-destructive' : leaseStatus.isExpiringSoon ? '[&>div]:bg-yellow-500' : ''}`}
+                          />
+                        </div>
+                      )}
                     </div>
                   </div>
                 </>
@@ -331,7 +527,7 @@ const TenantPortal = () => {
               <Receipt className="h-5 w-5 text-primary" />
               Payment History
             </CardTitle>
-            <CardDescription>Your recent payment transactions</CardDescription>
+            <CardDescription>Your complete payment transactions</CardDescription>
           </CardHeader>
           <CardContent>
             {payments.length > 0 ? (
@@ -360,6 +556,9 @@ const TenantPortal = () => {
                         <p className="text-sm text-muted-foreground">
                           {format(new Date(payment.payment_date), "MMMM d, yyyy")}
                         </p>
+                        {payment.notes && (
+                          <p className="text-xs text-muted-foreground mt-1">{payment.notes}</p>
+                        )}
                       </div>
                     </div>
                     <div className="text-right">
@@ -391,8 +590,8 @@ const TenantPortal = () => {
         {/* Quick Actions */}
         <Card>
           <CardHeader>
-            <CardTitle>Need Help?</CardTitle>
-            <CardDescription>Contact the property management for assistance</CardDescription>
+            <CardTitle>Quick Links</CardTitle>
+            <CardDescription>Explore the property marketplace</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap gap-3">
