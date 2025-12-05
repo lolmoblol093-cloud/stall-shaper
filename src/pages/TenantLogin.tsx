@@ -21,12 +21,39 @@ const TenantLogin = () => {
   const [form, setForm] = useState({ email: "", password: "", confirmPassword: "" });
 
   useEffect(() => {
-    // Check if this is a password reset callback
-    const type = searchParams.get("type");
-    if (type === "recovery") {
-      setMode("reset");
-    }
-  }, [searchParams]);
+    // Handle password recovery from URL hash (Supabase redirects with tokens in hash)
+    const handleRecovery = async () => {
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+      const accessToken = hashParams.get("access_token");
+      const refreshToken = hashParams.get("refresh_token");
+      const type = hashParams.get("type");
+
+      if (type === "recovery" && accessToken && refreshToken) {
+        // Set the session from the tokens
+        const { error } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        });
+
+        if (error) {
+          toast({
+            title: "Error",
+            description: "Invalid or expired reset link. Please request a new one.",
+            variant: "destructive",
+          });
+          setMode("forgot");
+        } else {
+          setMode("reset");
+          // Clear the hash from URL
+          window.history.replaceState(null, "", window.location.pathname);
+        }
+      } else if (searchParams.get("type") === "recovery") {
+        setMode("reset");
+      }
+    };
+
+    handleRecovery();
+  }, [searchParams, toast]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -38,7 +65,9 @@ const TenantLogin = () => {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
-      if (event === 'SIGNED_IN' && session && mode !== "reset") {
+      if (event === "PASSWORD_RECOVERY") {
+        setMode("reset");
+      } else if (event === 'SIGNED_IN' && session && mode !== "reset") {
         checkTenantAndRedirect(session.user.id, session.user.email);
       }
     });
