@@ -157,6 +157,35 @@ export type Database = {
         }
         Relationships: []
       }
+      tenant_users: {
+        Row: {
+          created_at: string
+          id: string
+          tenant_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          tenant_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          tenant_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_users_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tenants: {
         Row: {
           business_name: string
@@ -237,7 +266,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "guest"
+      app_role: "admin" | "guest" | "tenant"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -365,7 +394,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "guest"],
+      app_role: ["admin", "guest", "tenant"],
     },
   },
 } as const
