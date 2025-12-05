@@ -22,13 +22,14 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Search, Edit, Users, Map, Trash2, UserPlus } from "lucide-react";
+import { Plus, Search, Edit, Users, Map, Trash2, UserPlus, KeyRound } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { StallSelectionMap } from "@/components/StallSelectionMap";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { CreateTenantAccountDialog } from "@/components/CreateTenantAccountDialog";
+import { ResetTenantPasswordDialog } from "@/components/ResetTenantPasswordDialog";
 
 interface Tenant {
   id: string;
@@ -65,6 +66,8 @@ const TenantsPage = () => {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [tenantForAccount, setTenantForAccount] = useState<Tenant | null>(null);
   const [isCreateAccountDialogOpen, setIsCreateAccountDialogOpen] = useState(false);
+  const [tenantForPasswordReset, setTenantForPasswordReset] = useState<Tenant | null>(null);
+  const [isResetPasswordDialogOpen, setIsResetPasswordDialogOpen] = useState(false);
   
   const [newTenant, setNewTenant] = useState({
     business_name: "",
@@ -568,6 +571,17 @@ const TenantsPage = () => {
                           Portal
                         </Button>
                         <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => {
+                            setTenantForPasswordReset(tenant);
+                            setIsResetPasswordDialogOpen(true);
+                          }}
+                        >
+                          <KeyRound className="h-4 w-4 mr-1" />
+                          Reset PW
+                        </Button>
+                        <Button 
                           variant={tenant.status === "active" ? "destructive" : "default"}
                           size="sm"
                           onClick={() => toggleTenantStatus(tenant)}
@@ -695,6 +709,12 @@ const TenantsPage = () => {
           open={isCreateAccountDialogOpen}
           onOpenChange={setIsCreateAccountDialogOpen}
           onAccountCreated={() => fetchTenants()}
+        />
+
+        <ResetTenantPasswordDialog
+          tenant={tenantForPasswordReset}
+          open={isResetPasswordDialogOpen}
+          onOpenChange={setIsResetPasswordDialogOpen}
         />
       </div>
     </DashboardLayout>
