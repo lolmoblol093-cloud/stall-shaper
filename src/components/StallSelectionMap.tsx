@@ -685,7 +685,7 @@ export function StallSelectionMap({ selectedStallCode, onStallSelect, refreshTri
                   
                   const shapes = areas.map((area, index) => {
                     const stallId = stallIdMap[index];
-                    const stall = secondFloorStalls[index];
+                    const stall = secondFloorStalls.find(s => s.stall_code === stallId);
                     const isOccupied = stall?.occupancy_status === 'occupied';
                     const isSelected = selectedStallCode === stallId;
                     const fillColor = isSelected
