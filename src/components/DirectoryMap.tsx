@@ -440,24 +440,11 @@ export function DirectoryMap({ highlightedStallCode }: DirectoryMapProps) {
       <h3 className="text-xl font-semibold mb-4">Stall Directory Map</h3>
       
       <Tabs value={currentFloor} onValueChange={(v) => setCurrentFloor(v as 'ground' | 'second' | 'third')} className="w-full">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
-          <TabsList className="grid w-full sm:w-auto grid-cols-3">
-            <TabsTrigger value="ground">Ground Floor</TabsTrigger>
-            <TabsTrigger value="second">Second Floor</TabsTrigger>
-            <TabsTrigger value="third">Third Floor</TabsTrigger>
-          </TabsList>
-          
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded bg-green-500"></div>
-              <span className="text-sm text-muted-foreground">Available</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded bg-red-500"></div>
-              <span className="text-sm text-muted-foreground">Occupied</span>
-            </div>
-          </div>
-        </div>
+        <TabsList className="grid w-full grid-cols-3 mb-4">
+          <TabsTrigger value="ground">Ground Floor</TabsTrigger>
+          <TabsTrigger value="second">Second Floor</TabsTrigger>
+          <TabsTrigger value="third">Third Floor</TabsTrigger>
+        </TabsList>
         
         <TabsContent value="ground">
           <div className="relative w-full max-w-4xl mx-auto">
