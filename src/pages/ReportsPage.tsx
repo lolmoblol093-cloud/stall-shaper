@@ -461,11 +461,29 @@ const ReportsPage = () => {
                       data={pieData}
                       cx="50%"
                       cy="50%"
-                      innerRadius={60}
+                      innerRadius={0}
                       outerRadius={90}
-                      paddingAngle={5}
+                      paddingAngle={2}
                       dataKey="value"
-                      label={({ name, value }) => `${name}: ${value}`}
+                      label={({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
+                        const RADIAN = Math.PI / 180;
+                        const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+                        const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                        const y = cy + radius * Math.sin(-midAngle * RADIAN);
+                        return percent > 0 ? (
+                          <text
+                            x={x}
+                            y={y}
+                            fill="white"
+                            textAnchor="middle"
+                            dominantBaseline="central"
+                            className="text-sm font-semibold"
+                          >
+                            {`${(percent * 100).toFixed(0)}%`}
+                          </text>
+                        ) : null;
+                      }}
+                      labelLine={false}
                     >
                       {pieData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
