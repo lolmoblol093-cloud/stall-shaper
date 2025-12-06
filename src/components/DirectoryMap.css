@@ -83,6 +83,15 @@
   width: 20px;
   height: 20px;
   border: 2px solid hsl(var(--border));
+  border-radius: 4px;
+}
+
+.legend .box.is-available {
+  background-color: #22c55e;
+}
+
+.legend .box.is-occupied {
+  background-color: #ef4444;
 }
 
 /* ========================================
