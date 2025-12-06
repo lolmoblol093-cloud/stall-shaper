@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
+import LeaseTimeline from "@/components/LeaseTimeline";
 import { 
   Store, 
   LogOut, 
@@ -26,7 +27,7 @@ import {
   RefreshCw
 } from "lucide-react";
 import { Session } from "@supabase/supabase-js";
-import { format, differenceInDays, isPast, isWithinInterval, addDays } from "date-fns";
+import { format, differenceInDays } from "date-fns";
 
 interface TenantData {
   id: string;
@@ -504,17 +505,11 @@ const TenantPortal = () => {
                           : "N/A"
                         }
                       </p>
-                      {leaseStatus && tenant.lease_start_date && (
-                        <div className="mt-2">
-                          <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                            <span>Lease Progress</span>
-                            <span>{leaseStatus.daysRemaining > 0 ? `${leaseStatus.daysRemaining} days left` : 'Expired'}</span>
-                          </div>
-                          <Progress 
-                            value={leaseStatus.percentage} 
-                            className={`h-2 ${leaseStatus.isExpired ? '[&>div]:bg-destructive' : leaseStatus.isExpiringSoon ? '[&>div]:bg-yellow-500' : ''}`}
-                          />
-                        </div>
+                      {tenant.lease_start_date && tenant.lease_end_date && (
+                        <LeaseTimeline 
+                          startDate={tenant.lease_start_date} 
+                          endDate={tenant.lease_end_date} 
+                        />
                       )}
                     </div>
                   </div>
