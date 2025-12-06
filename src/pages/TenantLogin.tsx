@@ -6,8 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Store, ArrowLeft, Mail, KeyRound } from "lucide-react";
+import { Store, ArrowLeft, Mail, KeyRound, ShieldAlert } from "lucide-react";
 import { Session } from "@supabase/supabase-js";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 type ViewMode = "login" | "signup" | "forgot" | "reset";
 
@@ -19,6 +20,8 @@ const TenantLogin = () => {
   const [loading, setLoading] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("login");
   const [form, setForm] = useState({ email: "", password: "", confirmPassword: "" });
+  const [isLocked, setIsLocked] = useState(false);
+  const [lockCheckDone, setLockCheckDone] = useState(false);
 
   useEffect(() => {
     // Check if this is a password reset callback
@@ -95,12 +98,67 @@ const TenantLogin = () => {
     }
   };
 
+  const checkAccountLock = async (email: string) => {
+    try {
+      const { data, error } = await supabase.rpc('is_account_locked', { check_email: email });
+      if (error) {
+        console.error('Error checking account lock:', error);
+        return false;
+      }
+      return data === true;
+    } catch (error) {
+      console.error('Error checking account lock:', error);
+      return false;
+    }
+  };
+
+  const logLoginAttempt = async (email: string, success: boolean, failureReason?: string) => {
+    try {
+      await supabase.from('login_attempts').insert({
+        email,
+        user_agent: navigator.userAgent,
+        success,
+        failure_reason: failureReason || null,
+      });
+    } catch (error) {
+      console.error('Error logging login attempt:', error);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      if (viewMode === "signup") {
+      if (viewMode === "login") {
+        // Check if account is locked before attempting login
+        const locked = await checkAccountLock(form.email);
+        if (locked) {
+          setIsLocked(true);
+          await logLoginAttempt(form.email, false, 'Account locked - too many failed attempts');
+          toast({
+            title: "Account Temporarily Locked",
+            description: "Too many failed login attempts. Please wait 15 minutes before trying again.",
+            variant: "destructive",
+          });
+          setLoading(false);
+          return;
+        }
+        setIsLocked(false);
+
+        const { error } = await supabase.auth.signInWithPassword({
+          email: form.email,
+          password: form.password,
+        });
+
+        if (error) {
+          await logLoginAttempt(form.email, false, error.message);
+          throw error;
+        }
+
+        // Log successful login
+        await logLoginAttempt(form.email, true);
+      } else if (viewMode === "signup") {
         const { data: tenant } = await supabase
           .from("tenants")
           .select("id")
@@ -131,13 +189,6 @@ const TenantLogin = () => {
           title: "Account Created",
           description: "Please check your email to verify your account, or sign in if auto-confirm is enabled.",
         });
-      } else if (viewMode === "login") {
-        const { error } = await supabase.auth.signInWithPassword({
-          email: form.email,
-          password: form.password,
-        });
-
-        if (error) throw error;
       }
     } catch (error: any) {
       toast({
@@ -322,6 +373,14 @@ const TenantLogin = () => {
             </form>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
+              {isLocked && (
+                <Alert variant="destructive">
+                  <ShieldAlert className="h-4 w-4" />
+                  <AlertDescription>
+                    Account temporarily locked due to too many failed attempts. Please wait 15 minutes.
+                  </AlertDescription>
+                </Alert>
+              )}
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <Input
@@ -329,7 +388,10 @@ const TenantLogin = () => {
                   type="email"
                   placeholder="your@email.com"
                   value={form.email}
-                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  onChange={(e) => {
+                    setForm({ ...form, email: e.target.value });
+                    setIsLocked(false); // Reset lock status when email changes
+                  }}
                   required
                 />
                 <p className="text-xs text-muted-foreground">
@@ -348,8 +410,8 @@ const TenantLogin = () => {
                   minLength={6}
                 />
               </div>
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? "Please wait..." : viewMode === "signup" ? "Create Account" : "Sign In"}
+              <Button type="submit" className="w-full" disabled={loading || isLocked}>
+                {loading ? "Please wait..." : "Sign In"}
               </Button>
             </form>
           )}
