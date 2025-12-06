@@ -19,7 +19,8 @@ import {
   MapPin,
   CreditCard,
   Settings,
-  FileText
+  FileText,
+  MessageSquare
 } from "lucide-react";
 
 const navigationItems = [
@@ -47,6 +48,11 @@ const navigationItems = [
     title: "Payments",
     url: "/dashboard/payments", 
     icon: CreditCard,
+  },
+  {
+    title: "Inquiries",
+    url: "/dashboard/inquiries",
+    icon: MessageSquare,
   },
   {
     title: "Reports",

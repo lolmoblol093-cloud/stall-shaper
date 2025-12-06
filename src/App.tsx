@@ -14,6 +14,7 @@ import DirectoryPage from "./pages/DirectoryPage";
 import PaymentsPage from "./pages/PaymentsPage";
 import SettingsPage from "./pages/SettingsPage";
 import ReportsPage from "./pages/ReportsPage";
+import InquiriesPage from "./pages/InquiriesPage";
 import TenantLogin from "./pages/TenantLogin";
 import TenantPortal from "./pages/TenantPortal";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -85,6 +86,14 @@ const App = () => (
             element={
               <ProtectedRoute>
                 <ReportsPage />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/dashboard/inquiries" 
+            element={
+              <ProtectedRoute>
+                <InquiriesPage />
               </ProtectedRoute>
             } 
           />
