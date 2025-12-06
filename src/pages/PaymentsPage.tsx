@@ -33,7 +33,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { CalendarIcon, Plus, DollarSign } from "lucide-react";
+import { CalendarIcon, Plus } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -331,8 +331,8 @@ const PaymentsPage = () => {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center font-medium">
-                        <DollarSign className="h-4 w-4 mr-1" />
-                        {parseFloat(payment.amount).toFixed(2)}
+                        <span className="mr-1">₱</span>
+                        {parseFloat(payment.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </div>
                     </TableCell>
                     <TableCell className="capitalize">
@@ -348,7 +348,7 @@ const PaymentsPage = () => {
             </Table>
           ) : (
             <div className="p-8 text-center">
-              <DollarSign className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+              <span className="text-4xl text-muted-foreground mb-4 block">₱</span>
               <p className="text-muted-foreground">
                 No payments recorded yet. Start by recording your first payment.
               </p>
