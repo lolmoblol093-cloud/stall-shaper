@@ -103,28 +103,32 @@ const Dashboard = () => {
       value: stats.totalTenants.toString(),
       description: `${stats.activeTenants} active tenants`,
       icon: Users,
-      trend: `${stats.totalTenants} registered`
+      trend: `${stats.totalTenants} registered`,
+      color: "text-primary"
     },
     {
       title: "Occupied Stalls",
       value: `${stats.occupiedStalls}/${stats.totalStalls}`,
       description: `${stats.totalStalls > 0 ? Math.round((stats.occupiedStalls / stats.totalStalls) * 100) : 0}% occupancy rate`,
       icon: Home,
-      trend: `${stats.occupiedStalls} occupied`
+      trend: `${stats.occupiedStalls} occupied`,
+      color: "text-red-500"
     },
     {
       title: "Available Stalls",
       value: stats.availableStalls.toString(),
       description: "Ready for new tenants",
       icon: MapPin,
-      trend: `${stats.availableStalls} vacant`
+      trend: `${stats.availableStalls} vacant`,
+      color: "text-green-500"
     },
     {
       title: "Monthly Revenue",
       value: `₱${stats.monthlyRevenue.toLocaleString()}`,
       description: "Current month earnings",
       icon: TrendingUp,
-      trend: "This month"
+      trend: "This month",
+      color: "text-primary"
     }
   ];
 
@@ -160,10 +164,10 @@ const Dashboard = () => {
                   <CardTitle className="text-sm font-medium text-muted-foreground">
                     {stat.title}
                   </CardTitle>
-                  <stat.icon className="h-4 w-4 text-primary" />
+                  <stat.icon className={`h-4 w-4 ${stat.color}`} />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-foreground">{stat.value}</div>
+                  <div className={`text-2xl font-bold ${stat.color}`}>{stat.value}</div>
                   <p className="text-xs text-muted-foreground mt-1">
                     {stat.description}
                   </p>
