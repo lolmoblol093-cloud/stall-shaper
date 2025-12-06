@@ -79,7 +79,7 @@ const PaymentsPage = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("tenants")
-        .select("id, business_name")
+        .select("id, business_name, monthly_rent")
         .eq("status", "active")
         .order("business_name");
       
@@ -87,6 +87,16 @@ const PaymentsPage = () => {
       return data;
     },
   });
+
+  // Auto-fill amount when tenant is selected
+  const handleTenantChange = (tenantId: string) => {
+    const selectedTenant = tenants?.find(t => t.id === tenantId);
+    setFormData({
+      ...formData,
+      tenant_id: tenantId,
+      amount: selectedTenant?.monthly_rent?.toString() || "",
+    });
+  };
 
   // Add payment mutation
   const addPayment = useMutation({
@@ -168,9 +178,7 @@ const PaymentsPage = () => {
                   <Label htmlFor="tenant">Tenant</Label>
                   <Select
                     value={formData.tenant_id}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, tenant_id: value })
-                    }
+                    onValueChange={handleTenantChange}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select tenant" />
