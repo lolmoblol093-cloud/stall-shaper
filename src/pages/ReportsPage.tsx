@@ -40,7 +40,7 @@ interface Payment {
   tenant_name?: string;
 }
 
-const COLORS = ['hsl(var(--primary))', 'hsl(var(--muted))'];
+const COLORS = ['hsl(142, 76%, 36%)', 'hsl(0, 84%, 60%)']; // Green for occupied, Red for vacant
 
 const ReportsPage = () => {
   const { toast } = useToast();
