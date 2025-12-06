@@ -140,7 +140,6 @@ const StallsPage = () => {
         .from("stalls")
         .update({
           monthly_rent: selectedStall.monthly_rent,
-          electricity_reader: selectedStall.electricity_reader,
           floor_size: selectedStall.floor_size,
         })
         .eq("id", selectedStall.id);
@@ -350,14 +349,6 @@ const StallsPage = () => {
                     type="number"
                     value={selectedStall.monthly_rent}
                     onChange={(e) => setSelectedStall({...selectedStall, monthly_rent: parseFloat(e.target.value)})}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="electricity-reader">Electricity Reader</Label>
-                  <Input 
-                    id="electricity-reader" 
-                    value={selectedStall.electricity_reader || ""}
-                    onChange={(e) => setSelectedStall({...selectedStall, electricity_reader: e.target.value})}
                   />
                 </div>
                 <div className="space-y-2">
