@@ -21,6 +21,7 @@ import {
   List
 } from "lucide-react";
 import { DirectoryMap } from "@/components/DirectoryMap";
+import { StallInquiryForm } from "@/components/StallInquiryForm";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -56,6 +57,7 @@ const GuestView = () => {
   const [businesses, setBusinesses] = useState<BusinessListing[]>([]);
   const [availableStalls, setAvailableStalls] = useState<AvailableStall[]>([]);
   const [loading, setLoading] = useState(true);
+  const [inquiryStall, setInquiryStall] = useState<{ id: string; stallCode: string } | null>(null);
 
   const floors = ["all", "Ground Floor", "Second Floor", "Third Floor"];
 
@@ -506,7 +508,11 @@ const GuestView = () => {
                         </div>
 
                         {/* CTA */}
-                        <Button className="w-full group-hover:bg-primary/90" size="sm">
+                        <Button 
+                          className="w-full group-hover:bg-primary/90" 
+                          size="sm"
+                          onClick={() => setInquiryStall({ id: stall.id, stallCode: stall.stallCode })}
+                        >
                           Inquire Now
                           <ChevronRight className="h-4 w-4 ml-1" />
                         </Button>
@@ -530,7 +536,14 @@ const GuestView = () => {
                       <Phone className="h-4 w-4 mr-2" />
                       Call Now
                     </Button>
-                    <Button size="lg" variant="outline">
+                    <Button 
+                      size="lg" 
+                      variant="outline"
+                      onClick={() => availableStalls.length > 0 && setInquiryStall({ 
+                        id: availableStalls[0].id, 
+                        stallCode: "General" 
+                      })}
+                    >
                       <Mail className="h-4 w-4 mr-2" />
                       Send Inquiry
                     </Button>
@@ -558,6 +571,14 @@ const GuestView = () => {
           </div>
         </div>
       </footer>
+
+      {/* Inquiry Form Dialog */}
+      <StallInquiryForm
+        isOpen={!!inquiryStall}
+        onClose={() => setInquiryStall(null)}
+        stallId={inquiryStall?.id || ""}
+        stallCode={inquiryStall?.stallCode || ""}
+      />
     </div>
   );
 };
