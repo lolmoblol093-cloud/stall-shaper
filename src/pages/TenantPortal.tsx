@@ -238,25 +238,35 @@ const TenantPortal = () => {
 
   // Calculate lease status
   const leaseStatus = React.useMemo(() => {
-    if (!tenant?.lease_end_date) return null;
+    if (!tenant?.lease_end_date || !tenant?.lease_start_date) return null;
     
+    const startDate = new Date(tenant.lease_start_date);
     const endDate = new Date(tenant.lease_end_date);
     const today = new Date();
+    
+    // Reset times to compare dates only
+    startDate.setHours(0, 0, 0, 0);
+    endDate.setHours(0, 0, 0, 0);
+    today.setHours(0, 0, 0, 0);
+    
+    const totalLeaseDays = differenceInDays(endDate, startDate);
+    const daysElapsed = differenceInDays(today, startDate);
     const daysRemaining = differenceInDays(endDate, today);
     
-    const isExpired = isPast(endDate);
+    const isExpired = today > endDate;
     const isExpiringSoon = !isExpired && daysRemaining <= 30;
     
+    // Calculate percentage: 0% at start, 100% at end
+    let percentage = 0;
+    if (totalLeaseDays > 0) {
+      percentage = Math.min(100, Math.max(0, (daysElapsed / totalLeaseDays) * 100));
+    }
+    
     return {
-      daysRemaining,
+      daysRemaining: Math.max(0, daysRemaining),
       isExpired,
       isExpiringSoon,
-      percentage: tenant.lease_start_date 
-        ? Math.min(100, Math.max(0, 
-            (differenceInDays(today, new Date(tenant.lease_start_date)) / 
-             differenceInDays(endDate, new Date(tenant.lease_start_date))) * 100
-          ))
-        : 0
+      percentage
     };
   }, [tenant]);
 
