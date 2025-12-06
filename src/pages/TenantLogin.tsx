@@ -337,19 +337,7 @@ const TenantLogin = () => {
                 </p>
               </div>
               <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="password">Password</Label>
-                  {viewMode === "login" && (
-                    <Button
-                      type="button"
-                      variant="link"
-                      className="px-0 h-auto text-xs"
-                      onClick={() => setViewMode("forgot")}
-                    >
-                      Forgot password?
-                    </Button>
-                  )}
-                </div>
+                <Label htmlFor="password">Password</Label>
                 <Input
                   id="password"
                   type="password"
@@ -366,28 +354,20 @@ const TenantLogin = () => {
             </form>
           )}
 
-          {(viewMode === "login" || viewMode === "signup") && (
-            <div className="mt-4 text-center space-y-2">
-              <Button
-                variant="link"
-                onClick={() => setViewMode(viewMode === "signup" ? "login" : "signup")}
-                className="text-sm"
-              >
-                {viewMode === "signup" ? "Already have an account? Sign In" : "New tenant? Create Account"}
-              </Button>
-              <div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => navigate("/")}
-                  className="text-muted-foreground"
-                >
-                  <ArrowLeft className="h-4 w-4 mr-1" />
-                  Back to Marketplace
-                </Button>
-              </div>
-            </div>
-          )}
+          <div className="mt-4 text-center">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate("/")}
+              className="text-muted-foreground"
+            >
+              <ArrowLeft className="h-4 w-4 mr-1" />
+              Back to Marketplace
+            </Button>
+            <p className="text-xs text-muted-foreground mt-3">
+              Contact your admin if you need to reset your password
+            </p>
+          </div>
         </CardContent>
       </Card>
     </div>
