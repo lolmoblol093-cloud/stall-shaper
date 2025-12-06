@@ -44,6 +44,36 @@ export type Database = {
         }
         Relationships: []
       }
+      login_attempts: {
+        Row: {
+          created_at: string
+          email: string
+          failure_reason: string | null
+          id: string
+          ip_address: string | null
+          success: boolean
+          user_agent: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          failure_reason?: string | null
+          id?: string
+          ip_address?: string | null
+          success?: boolean
+          user_agent?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          failure_reason?: string | null
+          id?: string
+          ip_address?: string | null
+          success?: boolean
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
       payments: {
         Row: {
           amount: number
@@ -264,6 +294,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_account_locked: { Args: { check_email: string }; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "guest" | "tenant"
