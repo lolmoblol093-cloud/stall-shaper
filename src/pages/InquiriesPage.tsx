@@ -33,7 +33,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import {
@@ -50,19 +49,8 @@ import {
   Inbox,
   RefreshCw,
 } from "lucide-react";
-
-interface Inquiry {
-  id: string;
-  stall_id: string | null;
-  stall_code: string;
-  name: string;
-  email: string;
-  phone: string | null;
-  message: string | null;
-  status: string;
-  created_at: string;
-  updated_at: string;
-}
+import inquiryService from "@/services/inquiryService";
+import { Inquiry } from "@/integrations/directus/client";
 
 const InquiriesPage = () => {
   const [inquiries, setInquiries] = useState<Inquiry[]>([]);
@@ -73,30 +61,12 @@ const InquiriesPage = () => {
 
   useEffect(() => {
     fetchInquiries();
-
-    const channel = supabase
-      .channel("inquiries-changes")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "inquiries" },
-        () => fetchInquiries()
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
   }, []);
 
   const fetchInquiries = async () => {
     try {
-      const { data, error } = await supabase
-        .from("inquiries")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      setInquiries(data || []);
+      const data = await inquiryService.getAll();
+      setInquiries(data);
     } catch (error) {
       console.error("Error fetching inquiries:", error);
       toast.error("Failed to load inquiries");
@@ -105,14 +75,9 @@ const InquiriesPage = () => {
     }
   };
 
-  const updateStatus = async (id: string, status: string) => {
+  const updateStatus = async (id: string, status: Inquiry['status']) => {
     try {
-      const { error } = await supabase
-        .from("inquiries")
-        .update({ status })
-        .eq("id", id);
-
-      if (error) throw error;
+      await inquiryService.updateStatus(id, status);
       toast.success(`Inquiry marked as ${status}`);
       fetchInquiries();
     } catch (error) {
@@ -123,9 +88,7 @@ const InquiriesPage = () => {
 
   const deleteInquiry = async (id: string) => {
     try {
-      const { error } = await supabase.from("inquiries").delete().eq("id", id);
-
-      if (error) throw error;
+      await inquiryService.delete(id);
       toast.success("Inquiry deleted");
       fetchInquiries();
     } catch (error) {
