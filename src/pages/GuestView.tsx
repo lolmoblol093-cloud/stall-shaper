@@ -104,8 +104,9 @@ const GuestView = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
+      // Use tenants_public view for guest access (RLS-safe)
       const { data: tenantsData, error: tenantsError } = await supabase
-        .from('tenants')
+        .from('tenants_public')
         .select('*')
         .eq('status', 'active');
 
@@ -120,14 +121,14 @@ const GuestView = () => {
       const businessListings: BusinessListing[] = (tenantsData || []).map(tenant => {
         const stall = stallsData?.find(s => s.stall_code === tenant.stall_number);
         return {
-          id: tenant.id,
+          id: tenant.id || '',
           stallCode: tenant.stall_number || '',
-          businessName: tenant.business_name,
-          ownerName: tenant.contact_person,
+          businessName: tenant.business_name || '',
+          ownerName: '', // Not exposed in public view for privacy
           floor: normalizeFloorName(stall?.floor || 'N/A'),
-          contactNumber: tenant.phone || undefined,
-          email: tenant.email || undefined,
-          monthlyRent: tenant.monthly_rent ? Number(tenant.monthly_rent) : undefined,
+          contactNumber: undefined, // Not exposed in public view for privacy
+          email: undefined, // Not exposed in public view for privacy
+          monthlyRent: undefined,
         };
       });
 
@@ -414,10 +415,12 @@ const GuestView = () => {
 
                         {/* Details */}
                         <div className="space-y-1.5 text-sm">
-                          <div className="flex items-center gap-2 text-muted-foreground">
-                            <Users className="h-3.5 w-3.5 shrink-0" />
-                            <span className="truncate">{business.ownerName}</span>
-                          </div>
+                          {business.ownerName && (
+                            <div className="flex items-center gap-2 text-muted-foreground">
+                              <Users className="h-3.5 w-3.5 shrink-0" />
+                              <span className="truncate">{business.ownerName}</span>
+                            </div>
+                          )}
                           
                           {business.contactNumber && (
                             <div className="flex items-center gap-2 text-muted-foreground">

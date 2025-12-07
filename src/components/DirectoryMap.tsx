@@ -167,9 +167,9 @@ export function DirectoryMap({ highlightedStallCode, hideOccupiedDetails = false
       return;
     }
 
-    // Fetch active tenants
+    // Fetch active tenants from public view (RLS-safe for guests)
     const { data: tenantsData, error: tenantsError } = await supabase
-      .from('tenants')
+      .from('tenants_public')
       .select('*')
       .eq('status', 'active');
     
