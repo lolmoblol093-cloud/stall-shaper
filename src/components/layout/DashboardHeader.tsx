@@ -17,7 +17,7 @@ export const DashboardHeader = () => {
       title: "Logged out",
       description: "You have been successfully logged out",
     });
-    navigate("/login");
+    navigate("/guest");
   };
 
   return (
