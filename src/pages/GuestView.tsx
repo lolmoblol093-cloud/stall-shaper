@@ -7,7 +7,6 @@ import {
   Building2, 
   Phone, 
   Home,
-  LogOut,
   Store,
   Layers,
   ChevronRight,
@@ -19,9 +18,8 @@ import {
 import { DirectoryMap } from "@/components/DirectoryMap";
 import { StallInquiryForm } from "@/components/StallInquiryForm";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Session } from "@supabase/supabase-js";
+import stallService from "@/services/stallService";
 
 interface AvailableStall {
   id: string;
@@ -36,7 +34,6 @@ const GuestView = () => {
   const { toast } = useToast();
   const [displayMode, setDisplayMode] = useState<"list" | "map">("list");
   const [selectedFloor, setSelectedFloor] = useState<string>("all");
-  const [session, setSession] = useState<Session | null>(null);
   const [availableStalls, setAvailableStalls] = useState<AvailableStall[]>([]);
   const [loading, setLoading] = useState(true);
   const [inquiryStall, setInquiryStall] = useState<{ id: string; stallCode: string } | null>(null);
@@ -44,27 +41,7 @@ const GuestView = () => {
   const floors = ["all", "Ground Floor", "Second Floor", "Third Floor"];
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
-
     fetchData();
-
-    const stallsChannel = supabase
-      .channel('stalls-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'stalls' }, () => {
-        fetchData();
-      })
-      .subscribe();
-
-    return () => {
-      subscription.unsubscribe();
-      supabase.removeChannel(stallsChannel);
-    };
   }, []);
 
   const normalizeFloorName = (floor: string): string => {
@@ -78,21 +55,15 @@ const GuestView = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const { data: stallsData, error: stallsError } = await supabase
-        .from('stalls')
-        .select('*');
+      const stalls = await stallService.getAvailable();
 
-      if (stallsError) throw stallsError;
-
-      const availableStallsList: AvailableStall[] = (stallsData || [])
-        .filter(stall => stall.occupancy_status === 'vacant')
-        .map(stall => ({
-          id: stall.id,
-          stallCode: stall.stall_code,
-          floor: normalizeFloorName(stall.floor),
-          floorSize: stall.floor_size || undefined,
-          monthlyRent: Number(stall.monthly_rent),
-        }));
+      const availableStallsList: AvailableStall[] = stalls.map(stall => ({
+        id: stall.id,
+        stallCode: stall.stall_code,
+        floor: normalizeFloorName(stall.floor),
+        floorSize: stall.floor_size || undefined,
+        monthlyRent: Number(stall.monthly_rent),
+      }));
 
       setAvailableStalls(availableStallsList);
     } catch (error) {
@@ -105,19 +76,6 @@ const GuestView = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleLogout = async () => {
-    try {
-      await supabase.auth.signOut();
-      toast({
-        title: "Logged out",
-        description: "You have been logged out successfully",
-      });
-    } catch (error) {
-      console.log("Logout error (ignoring):", error);
-    }
-    navigate("/login");
   };
 
   const filteredStalls = availableStalls.filter(stall => {
@@ -158,24 +116,13 @@ const GuestView = () => {
                 <Store className="h-4 w-4 mr-2" />
                 Tenant Portal
               </Button>
-              {session ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleLogout}
-                >
-                  <LogOut className="h-4 w-4 mr-2" />
-                  Logout
-                </Button>
-              ) : (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => navigate("/login")}
-                >
-                  Admin
-                </Button>
-              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate("/login")}
+              >
+                Admin
+              </Button>
             </div>
           </div>
         </div>

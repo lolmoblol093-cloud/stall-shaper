@@ -4,10 +4,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MapPin, Search, Building, Users } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { MapPin, Search, Building } from "lucide-react";
 import { DirectoryMap } from "@/components/DirectoryMap";
 import { useToast } from "@/hooks/use-toast";
+import stallService from "@/services/stallService";
+import tenantService from "@/services/tenantService";
 
 interface DirectoryStall {
   id: string;
@@ -29,44 +30,18 @@ const DirectoryPage = () => {
 
   useEffect(() => {
     fetchStallsWithTenants();
-    
-    // Set up real-time subscription for stalls and tenants
-    const stallsChannel = supabase
-      .channel('stalls-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'stalls' }, () => {
-        fetchStallsWithTenants();
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tenants' }, () => {
-        fetchStallsWithTenants();
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(stallsChannel);
-    };
   }, []);
 
   const fetchStallsWithTenants = async () => {
     try {
-      // Fetch all stalls
-      const { data: stallsData, error: stallsError } = await supabase
-        .from('stalls')
-        .select('*')
-        .order('stall_code');
-
-      if (stallsError) throw stallsError;
-
-      // Fetch all active tenants
-      const { data: tenantsData, error: tenantsError } = await supabase
-        .from('tenants')
-        .select('*')
-        .eq('status', 'active');
-
-      if (tenantsError) throw tenantsError;
+      const [stallsData, tenantsData] = await Promise.all([
+        stallService.getAll(),
+        tenantService.getActive()
+      ]);
 
       // Combine stalls with tenant information
-      const combinedData: DirectoryStall[] = (stallsData || []).map(stall => {
-        const tenant = tenantsData?.find(t => t.stall_number === stall.stall_code);
+      const combinedData: DirectoryStall[] = stallsData.map(stall => {
+        const tenant = tenantsData.find(t => t.stall_number === stall.stall_code);
         return {
           id: stall.id,
           stallCode: stall.stall_code,
