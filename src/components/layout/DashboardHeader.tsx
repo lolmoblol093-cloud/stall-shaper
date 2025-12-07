@@ -5,6 +5,7 @@ import { SidebarTrigger } from "@/components/ui/sidebar";
 import { LogOut, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { NotificationBell } from "@/components/NotificationBell";
 
 export const DashboardHeader = () => {
   const navigate = useNavigate();
@@ -27,6 +28,7 @@ export const DashboardHeader = () => {
       </div>
       
       <div className="flex items-center space-x-4">
+        <NotificationBell />
         <div className="flex items-center space-x-2 text-sm text-muted-foreground">
           <User className="h-4 w-4" />
           <span>Administrator</span>
