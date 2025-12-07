@@ -11,3 +11,42 @@ services:
       - NODE_ENV=production
     restart: unless-stopped
     container_name: property-management-app
+    depends_on:
+      - directus
+
+  directus:
+    image: directus/directus:latest
+    ports:
+      - "8055:8055"
+    environment:
+      KEY: "your-secret-key" # Replace with a strong, random key
+      SECRET: "your-secret-string" # Replace with a strong, random string
+      DB_CLIENT: "pg"
+      DB_HOST: "directus_db"
+      DB_PORT: "5432"
+      DB_USER: "directus_user"
+      DB_PASSWORD: "directus_password" # Replace with a strong password
+      DB_DATABASE: "directus_database"
+      ADMIN_EMAIL: "admin@example.com" # Initial admin user email
+      ADMIN_PASSWORD: "admin_password" # Initial admin user password (change after first login)
+    volumes:
+      - directus_uploads:/directus/uploads # For file storage
+      - directus_extensions:/directus/extensions # For extensions
+    depends_on:
+      - directus_db
+    restart: unless-stopped
+
+  directus_db:
+    image: postgres:14-alpine
+    environment:
+      POSTGRES_DB: "directus_database"
+      POSTGRES_USER: "directus_user"
+      POSTGRES_PASSWORD: "directus_password" # Replace with a strong password
+    volumes:
+      - directus_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  directus_uploads:
+  directus_extensions:
+  directus_data:
