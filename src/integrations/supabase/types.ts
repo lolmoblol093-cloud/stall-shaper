@@ -199,13 +199,6 @@ export type Database = {
             referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "payments_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants_public"
-            referencedColumns: ["id"]
-          },
         ]
       }
       profiles: {
@@ -301,13 +294,6 @@ export type Database = {
             referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "tenant_users_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: true
-            referencedRelation: "tenants_public"
-            referencedColumns: ["id"]
-          },
         ]
       }
       tenants: {
@@ -378,27 +364,7 @@ export type Database = {
       }
     }
     Views: {
-      tenants_public: {
-        Row: {
-          business_name: string | null
-          id: string | null
-          stall_number: string | null
-          status: string | null
-        }
-        Insert: {
-          business_name?: string | null
-          id?: string | null
-          stall_number?: string | null
-          status?: string | null
-        }
-        Update: {
-          business_name?: string | null
-          id?: string | null
-          stall_number?: string | null
-          status?: string | null
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Functions: {
       has_role: {

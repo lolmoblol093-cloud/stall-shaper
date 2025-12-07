@@ -1,4 +1,1 @@
 project_id = "zemgjqfyqrwvpdnrsckg"
-
-[functions.create-tenant-account]
-verify_jwt = true

@@ -104,10 +104,10 @@ const GuestView = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Use the public view that only exposes non-PII fields (business_name, stall_number, status)
       const { data: tenantsData, error: tenantsError } = await supabase
-        .from('tenants_public')
-        .select('*');
+        .from('tenants')
+        .select('*')
+        .eq('status', 'active');
 
       if (tenantsError) throw tenantsError;
 
@@ -123,12 +123,11 @@ const GuestView = () => {
           id: tenant.id,
           stallCode: tenant.stall_number || '',
           businessName: tenant.business_name,
-          ownerName: '', // Not exposed in public view for privacy
+          ownerName: tenant.contact_person,
           floor: normalizeFloorName(stall?.floor || 'N/A'),
-          // PII fields are not exposed in public view
-          contactNumber: undefined,
-          email: undefined,
-          monthlyRent: undefined,
+          contactNumber: tenant.phone || undefined,
+          email: tenant.email || undefined,
+          monthlyRent: tenant.monthly_rent ? Number(tenant.monthly_rent) : undefined,
         };
       });
 
@@ -413,12 +412,26 @@ const GuestView = () => {
                           </Badge>
                         </div>
 
-                        {/* Details - PII fields removed for public privacy */}
+                        {/* Details */}
                         <div className="space-y-1.5 text-sm">
                           <div className="flex items-center gap-2 text-muted-foreground">
-                            <MapPin className="h-3.5 w-3.5 shrink-0" />
-                            <span className="truncate">{business.floor}</span>
+                            <Users className="h-3.5 w-3.5 shrink-0" />
+                            <span className="truncate">{business.ownerName}</span>
                           </div>
+                          
+                          {business.contactNumber && (
+                            <div className="flex items-center gap-2 text-muted-foreground">
+                              <Phone className="h-3.5 w-3.5 shrink-0" />
+                              <span>{business.contactNumber}</span>
+                            </div>
+                          )}
+
+                          {business.email && (
+                            <div className="flex items-center gap-2 text-muted-foreground">
+                              <Mail className="h-3.5 w-3.5 shrink-0" />
+                              <span className="truncate">{business.email}</span>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </CardContent>
