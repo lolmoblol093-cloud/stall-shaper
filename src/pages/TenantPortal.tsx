@@ -90,7 +90,7 @@ const TenantPortal = () => {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Real-time subscription for tenant and payment updates
+  // Real-time subscription for tenant, stall, and payment updates
   useEffect(() => {
     if (!tenant?.id) return;
 
@@ -106,7 +106,25 @@ const TenantPortal = () => {
         },
         (payload) => {
           if (payload.eventType === 'UPDATE') {
-            setTenant(payload.new as TenantData);
+            const updatedTenant = payload.new as TenantData;
+            setTenant(updatedTenant);
+            
+            // If stall number changed, fetch new stall data
+            if (updatedTenant.stall_number !== tenant.stall_number) {
+              if (updatedTenant.stall_number) {
+                supabase
+                  .from("stalls")
+                  .select("*")
+                  .eq("stall_code", updatedTenant.stall_number)
+                  .single()
+                  .then(({ data }) => {
+                    if (data) setStall(data);
+                  });
+              } else {
+                setStall(null);
+              }
+            }
+            
             toast({
               title: "Information Updated",
               description: "Your tenant information has been updated.",
@@ -131,15 +149,43 @@ const TenantPortal = () => {
             });
           } else if (payload.eventType === 'UPDATE') {
             setPayments(prev => prev.map(p => p.id === (payload.new as Payment).id ? payload.new as Payment : p));
+            toast({
+              title: "Payment Updated",
+              description: "A payment status has been updated.",
+            });
+          } else if (payload.eventType === 'DELETE') {
+            setPayments(prev => prev.filter(p => p.id !== (payload.old as Payment).id));
           }
         }
       )
       .subscribe();
 
+    // Stall updates subscription
+    const stallChannel = stall?.id ? supabase
+      .channel('tenant-stall-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'stalls',
+          filter: `id=eq.${stall.id}`
+        },
+        (payload) => {
+          setStall(payload.new as StallData);
+          toast({
+            title: "Stall Updated",
+            description: "Your stall information has been updated.",
+          });
+        }
+      )
+      .subscribe() : null;
+
     return () => {
       supabase.removeChannel(tenantChannel);
+      if (stallChannel) supabase.removeChannel(stallChannel);
     };
-  }, [tenant?.id]);
+  }, [tenant?.id, stall?.id, tenant?.stall_number]);
 
   const fetchTenantData = async (userId: string) => {
     try {
