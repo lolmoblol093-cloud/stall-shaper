@@ -22,8 +22,9 @@ import {
 import { Label } from "@/components/ui/label";
 import { Home, Search, Edit, ImageIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
 import { StallSelectionMap } from "@/components/StallSelectionMap";
+import stallService from "@/services/stallService";
+import tenantService from "@/services/tenantService";
 
 interface Stall {
   id: string;
@@ -55,34 +56,12 @@ const StallsPage = () => {
   useEffect(() => {
     fetchStalls();
     fetchTenants();
-    
-    // Set up real-time subscriptions
-    const stallsChannel = supabase
-      .channel('stalls-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'stalls' }, () => {
-        fetchStalls();
-        setMapRefreshTrigger(prev => prev + 1);
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tenants' }, () => {
-        fetchTenants();
-        setMapRefreshTrigger(prev => prev + 1);
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(stallsChannel);
-    };
   }, []);
 
   const fetchStalls = async () => {
     try {
-      const { data, error } = await supabase
-        .from("stalls")
-        .select("*")
-        .order("stall_code");
-
-      if (error) throw error;
-      setStalls(data || []);
+      const data = await stallService.getAll();
+      setStalls(data as Stall[]);
     } catch (error: any) {
       toast({
         title: "Error",
@@ -96,13 +75,8 @@ const StallsPage = () => {
 
   const fetchTenants = async () => {
     try {
-      const { data, error } = await supabase
-        .from("tenants")
-        .select("stall_number, business_name")
-        .eq("status", "active");
-
-      if (error) throw error;
-      setTenants(data || []);
+      const data = await tenantService.getActive();
+      setTenants(data.map(t => ({ stall_number: t.stall_number, business_name: t.business_name })));
     } catch (error: any) {
       console.error("Error fetching tenants:", error);
     }
@@ -136,15 +110,10 @@ const StallsPage = () => {
     if (!selectedStall) return;
 
     try {
-      const { error } = await supabase
-        .from("stalls")
-        .update({
-          monthly_rent: selectedStall.monthly_rent,
-          floor_size: selectedStall.floor_size,
-        })
-        .eq("id", selectedStall.id);
-
-      if (error) throw error;
+      await stallService.update(selectedStall.id, {
+        monthly_rent: selectedStall.monthly_rent,
+        floor_size: selectedStall.floor_size,
+      });
 
       toast({
         title: "Stall Updated",
@@ -153,6 +122,7 @@ const StallsPage = () => {
       
       setIsEditDialogOpen(false);
       setSelectedStall(null);
+      setMapRefreshTrigger(prev => prev + 1);
       fetchStalls();
     } catch (error: any) {
       toast({
