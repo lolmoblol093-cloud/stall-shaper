@@ -140,9 +140,10 @@ function Booth({ id, status, onClick, isHighlighted }: BoothProps) {
 
 interface DirectoryMapProps {
   highlightedStallCode?: string | null;
+  hideOccupiedDetails?: boolean;
 }
 
-export function DirectoryMap({ highlightedStallCode }: DirectoryMapProps) {
+export function DirectoryMap({ highlightedStallCode, hideOccupiedDetails = false }: DirectoryMapProps) {
   const [booths, setBooths] = useState(initialBoothData);
   const [stallsData, setStallsData] = useState<StallData[]>([]);
   const [selectedStall, setSelectedStall] = useState<StallData | null>(null);
@@ -206,6 +207,11 @@ export function DirectoryMap({ highlightedStallCode }: DirectoryMapProps) {
   const handleBoothClick = async (id: string) => {
     const stall = stallsData.find(s => s.stall_code === id);
     if (stall) {
+      // If hideOccupiedDetails is true and stall is occupied, don't show modal
+      if (hideOccupiedDetails && stall.occupancy_status === 'occupied') {
+        return;
+      }
+      
       setSelectedStall(stall);
       
       // Fetch tenant data if stall is occupied

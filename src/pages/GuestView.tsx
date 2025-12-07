@@ -348,7 +348,7 @@ const GuestView = () => {
         {displayMode === "map" && (
           <Card className="overflow-hidden">
             <CardContent className="p-4 sm:p-6">
-              <DirectoryMap />
+              <DirectoryMap hideOccupiedDetails />
             </CardContent>
           </Card>
         )}
