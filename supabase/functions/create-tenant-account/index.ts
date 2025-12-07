@@ -21,8 +21,48 @@ serve(async (req: Request) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-    // Create admin client with service role key
+    // Verify the caller is authenticated and has admin role
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      console.error("No authorization header provided");
+      return new Response(
+        JSON.stringify({ error: "Unauthorized: No authorization header" }),
+        {
+          status: 401,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        }
+      );
+    }
+
+    // Create a client with the user's JWT to check their role
+    const supabaseAuth = createClient(supabaseUrl, anonKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+      global: {
+        headers: { Authorization: authHeader },
+      },
+    });
+
+    // Get the authenticated user
+    const { data: userData, error: userError } = await supabaseAuth.auth.getUser();
+    if (userError || !userData.user) {
+      console.error("Failed to get user:", userError);
+      return new Response(
+        JSON.stringify({ error: "Unauthorized: Invalid token" }),
+        {
+          status: 401,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        }
+      );
+    }
+
+    console.log(`Authenticated user: ${userData.user.id}`);
+
+    // Check if the user has admin role using the service role client
     const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
       auth: {
         autoRefreshToken: false,
@@ -30,7 +70,38 @@ serve(async (req: Request) => {
       },
     });
 
+    const { data: roleData, error: roleError } = await supabaseAdmin
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", userData.user.id)
+      .eq("role", "admin")
+      .single();
+
+    if (roleError || !roleData) {
+      console.error("User is not an admin:", roleError);
+      return new Response(
+        JSON.stringify({ error: "Forbidden: Admin access required" }),
+        {
+          status: 403,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        }
+      );
+    }
+
+    console.log("Admin role verified");
+
     const { email, password, tenant_id }: CreateAccountRequest = await req.json();
+
+    // Validate input
+    if (!email || !password || !tenant_id) {
+      return new Response(
+        JSON.stringify({ error: "Missing required fields: email, password, tenant_id" }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        }
+      );
+    }
 
     console.log(`Creating tenant account for email: ${email}, tenant_id: ${tenant_id}`);
 
