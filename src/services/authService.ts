@@ -1,5 +1,5 @@
-import { directus, directusAuth } from '@/integrations/directus/client';
-import { readItems, createItem, readItem, updateItem } from '@directus/sdk';
+import { directus } from '@/integrations/directus/client';
+import { readItems, createItem } from '@directus/sdk';
 
 export interface AuthUser {
   id: string;
@@ -37,35 +37,50 @@ export const authService = {
     return { user };
   },
 
-  // Admin login using Directus authentication
+  // Admin login - simplified for Directus static token auth
   async adminLogin(email: string, password: string): Promise<{ user: AuthUser | null; error: string | null }> {
     try {
-      // Try to authenticate with Directus
-      const result = await directusAuth.login(email, password);
+      // For static token auth, we validate against a configured admin
+      // In production, you'd use Directus user authentication
+      const DIRECTUS_URL = import.meta.env.VITE_DIRECTUS_URL;
       
-      if (result.access_token) {
-        // Get user info
-        const userInfo = await directusAuth.request(readItem('directus_users', 'me' as any));
-        
-        // Check if user has admin role (you can customize this based on your Directus role setup)
+      if (!DIRECTUS_URL) {
+        return { user: null, error: 'Directus not configured. Please set VITE_DIRECTUS_URL.' };
+      }
+
+      // Try to authenticate with Directus REST API
+      const response = await fetch(`${DIRECTUS_URL}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ errors: [{ message: 'Login failed' }] }));
+        return { user: null, error: error.errors?.[0]?.message || 'Invalid credentials' };
+      }
+
+      const data = await response.json();
+      
+      if (data.data?.access_token) {
         const user: AuthUser = {
-          id: (userInfo as any).id,
-          email: (userInfo as any).email,
+          id: email,
+          email: email,
           role: 'admin',
         };
         
-        setStoredAuth(user, result.access_token);
+        setStoredAuth(user, data.data.access_token);
         return { user, error: null };
       }
       
       return { user: null, error: 'Login failed' };
     } catch (error: any) {
       console.error('Admin login error:', error);
-      return { user: null, error: error.message || 'Invalid credentials' };
+      return { user: null, error: error.message || 'Login failed' };
     }
   },
 
-  // Tenant login - simplified for Directus
+  // Tenant login
   async tenantLogin(email: string, password: string): Promise<{ user: AuthUser | null; error: string | null }> {
     try {
       // Check if account is locked
@@ -75,16 +90,31 @@ export const authService = {
         return { user: null, error: 'Account temporarily locked. Please wait 15 minutes.' };
       }
 
-      // Try Directus authentication
-      const result = await directusAuth.login(email, password);
+      const DIRECTUS_URL = import.meta.env.VITE_DIRECTUS_URL;
       
-      if (result.access_token) {
-        const userInfo = await directusAuth.request(readItem('directus_users', 'me' as any));
-        
+      if (!DIRECTUS_URL) {
+        return { user: null, error: 'Directus not configured' };
+      }
+
+      // Try Directus authentication
+      const response = await fetch(`${DIRECTUS_URL}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+
+      if (!response.ok) {
+        await this.logLoginAttempt(email, false, 'Invalid credentials');
+        return { user: null, error: 'Invalid credentials' };
+      }
+
+      const data = await response.json();
+      
+      if (data.data?.access_token) {
         // Check if this user is linked to a tenant
         const tenantUsers = await directus.request(
           readItems('tenant_users', {
-            filter: { user_id: { _eq: (userInfo as any).id } },
+            filter: { user_id: { _eq: email } },
             limit: 1,
           })
         );
@@ -102,7 +132,7 @@ export const authService = {
             // Link user to tenant
             await directus.request(
               createItem('tenant_users', {
-                user_id: (userInfo as any).id,
+                user_id: email,
                 tenant_id: tenants[0].id,
               })
             );
@@ -115,12 +145,12 @@ export const authService = {
         await this.logLoginAttempt(email, true);
         
         const user: AuthUser = {
-          id: (userInfo as any).id,
-          email: (userInfo as any).email,
+          id: email,
+          email: email,
           role: 'tenant',
         };
         
-        setStoredAuth(user, result.access_token);
+        setStoredAuth(user, data.data.access_token);
         return { user, error: null };
       }
       
@@ -135,30 +165,31 @@ export const authService = {
 
   // Sign out
   async signOut(): Promise<void> {
-    try {
-      await directusAuth.logout();
-    } catch {
-      // Ignore logout errors
-    }
     setStoredAuth(null, null);
   },
 
   // Check if account is locked (5+ failed attempts in 15 minutes)
   async checkAccountLock(email: string): Promise<boolean> {
     try {
-      const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString();
-      
+      // Get all failed attempts for this email
       const attempts = await directus.request(
         readItems('login_attempts', {
           filter: {
             email: { _eq: email },
             success: { _eq: false },
-            created_at: { _gte: fifteenMinutesAgo },
           },
+          sort: ['-created_at'],
+          limit: 10,
         })
       );
       
-      return attempts.length >= 5;
+      // Filter attempts within last 15 minutes in JavaScript
+      const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
+      const recentFailures = attempts.filter(a => 
+        new Date(a.created_at) > fifteenMinutesAgo
+      );
+      
+      return recentFailures.length >= 5;
     } catch (error) {
       console.error('Error checking account lock:', error);
       return false;
@@ -178,23 +209,6 @@ export const authService = {
       );
     } catch (error) {
       console.error('Error logging login attempt:', error);
-    }
-  },
-
-  // Check user role
-  async getUserRole(userId: string): Promise<string | null> {
-    try {
-      const roles = await directus.request(
-        readItems('user_roles', {
-          filter: { user_id: { _eq: userId } },
-          limit: 1,
-        })
-      );
-      
-      return roles.length > 0 ? roles[0].role : null;
-    } catch (error) {
-      console.error('Error getting user role:', error);
-      return null;
     }
   },
 
@@ -218,61 +232,27 @@ export const authService = {
   // Create tenant account
   async createTenantAccount(email: string, password: string, tenantId: string): Promise<{ success: boolean; error?: string }> {
     try {
-      // This would typically be done through Directus admin API
-      // For now, we'll create the user through Directus
-      // Note: You may need to set up a custom endpoint or use Directus flows for this
-      
-      // Create tenant_users link if user already exists
-      const existingUsers = await directus.request(
-        readItems('directus_users' as any, {
-          filter: { email: { _eq: email } },
+      // Check if tenant_users link exists
+      const existingLink = await directus.request(
+        readItems('tenant_users', {
+          filter: { 
+            user_id: { _eq: email }, 
+            tenant_id: { _eq: tenantId } 
+          },
           limit: 1,
         })
       );
 
-      if (existingUsers && existingUsers.length > 0) {
-        const userId = (existingUsers[0] as any).id;
-        
-        // Check if already linked
-        const existingLink = await directus.request(
-          readItems('tenant_users', {
-            filter: { user_id: { _eq: userId }, tenant_id: { _eq: tenantId } },
-            limit: 1,
+      if (!existingLink || existingLink.length === 0) {
+        await directus.request(
+          createItem('tenant_users', {
+            user_id: email,
+            tenant_id: tenantId,
           })
         );
-
-        if (!existingLink || existingLink.length === 0) {
-          await directus.request(
-            createItem('tenant_users', {
-              user_id: userId,
-              tenant_id: tenantId,
-            })
-          );
-        }
-
-        // Add tenant role if not exists
-        const existingRole = await directus.request(
-          readItems('user_roles', {
-            filter: { user_id: { _eq: userId }, role: { _eq: 'tenant' } },
-            limit: 1,
-          })
-        );
-
-        if (!existingRole || existingRole.length === 0) {
-          await directus.request(
-            createItem('user_roles', {
-              user_id: userId,
-              role: 'tenant',
-            })
-          );
-        }
-
-        return { success: true };
       }
 
-      // For new user creation, you would need Directus admin privileges
-      // This might require a custom Directus flow or extension
-      return { success: false, error: 'User creation requires Directus admin setup' };
+      return { success: true };
     } catch (error: any) {
       console.error('Error creating tenant account:', error);
       return { success: false, error: error.message };

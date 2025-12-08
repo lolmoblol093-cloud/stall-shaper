@@ -57,19 +57,7 @@ const SettingsPage = () => {
   // Update app settings mutation
   const updateAppSettings = useMutation({
     mutationFn: async (name: string) => {
-      const existingSetting = appSettings?.find((s) => s.key === "property_name");
-      
-      if (existingSetting) {
-        return appSettingsService.update(existingSetting.id, {
-          value: { name },
-        });
-      } else {
-        return appSettingsService.create({
-          key: "property_name",
-          value: { name },
-          description: "Property management system name",
-        });
-      }
+      return appSettingsService.setPropertyName(name);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["app_settings"] });

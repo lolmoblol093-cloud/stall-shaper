@@ -129,7 +129,7 @@ export interface Schema {
   directus_users: DirectusUser[];
 }
 
-const DIRECTUS_URL = import.meta.env.VITE_DIRECTUS_URL || '';
+const DIRECTUS_URL = import.meta.env.VITE_DIRECTUS_URL || 'http://localhost:8055';
 const DIRECTUS_TOKEN = import.meta.env.VITE_DIRECTUS_TOKEN || '';
 
 // Admin client with static token for backend operations
