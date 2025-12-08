@@ -1,4 +1,4 @@
-import { createDirectus, rest, staticToken } from '@directus/sdk';
+import { createDirectus, rest, staticToken, authentication } from '@directus/sdk';
 
 export interface Stall {
   id: string;
@@ -74,6 +74,47 @@ export interface AppSetting {
   updated_at: string;
 }
 
+export interface Profile {
+  id: string;
+  user_id: string;
+  full_name?: string;
+  email?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TenantUser {
+  id: string;
+  user_id: string;
+  tenant_id: string;
+  created_at: string;
+}
+
+export interface UserRole {
+  id: string;
+  user_id: string;
+  role: 'admin' | 'tenant' | 'guest';
+  created_at: string;
+}
+
+export interface LoginAttempt {
+  id: string;
+  email: string;
+  success: boolean;
+  failure_reason?: string;
+  ip_address?: string;
+  user_agent?: string;
+  created_at: string;
+}
+
+export interface DirectusUser {
+  id: string;
+  email: string;
+  first_name?: string;
+  last_name?: string;
+  role: string;
+}
+
 export interface Schema {
   stalls: Stall[];
   tenants: Tenant[];
@@ -81,13 +122,24 @@ export interface Schema {
   inquiries: Inquiry[];
   notifications: Notification[];
   app_settings: AppSetting[];
+  profiles: Profile[];
+  tenant_users: TenantUser[];
+  user_roles: UserRole[];
+  login_attempts: LoginAttempt[];
+  directus_users: DirectusUser[];
 }
 
 const DIRECTUS_URL = import.meta.env.VITE_DIRECTUS_URL || '';
 const DIRECTUS_TOKEN = import.meta.env.VITE_DIRECTUS_TOKEN || '';
 
+// Admin client with static token for backend operations
 export const directus = createDirectus<Schema>(DIRECTUS_URL)
   .with(staticToken(DIRECTUS_TOKEN))
+  .with(rest());
+
+// Auth client for user authentication
+export const directusAuth = createDirectus<Schema>(DIRECTUS_URL)
+  .with(authentication('json'))
   .with(rest());
 
 export default directus;
