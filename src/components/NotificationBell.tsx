@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import notificationService from "@/services/notificationService";
-import type { Notification } from "@/services/notificationService";
+import { Notification } from "@/integrations/directus/client";
 
 export const NotificationBell = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);

@@ -1,15 +1,14 @@
 import React, { useState } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { authService } from "@/services/authService";
-import { appSettingsService } from "@/services/appSettingsService";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Building2, User } from "lucide-react";
+import { Settings, Building2, User } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 
 const SettingsPage = () => {
@@ -17,11 +16,20 @@ const SettingsPage = () => {
   const queryClient = useQueryClient();
   
   // Fetch user profile
-  const { data: user } = useQuery({
-    queryKey: ["currentUser"],
+  const { data: profile } = useQuery({
+    queryKey: ["profile"],
     queryFn: async () => {
-      const { user } = await authService.getSession();
-      return user;
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+      
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      
+      if (error) throw error;
+      return data;
     },
   });
 
@@ -31,18 +39,26 @@ const SettingsPage = () => {
   });
 
   React.useEffect(() => {
-    if (user) {
+    if (profile) {
       setProfileData({
-        full_name: "",
-        email: user.email || "",
+        full_name: profile.full_name || "",
+        email: profile.email || "",
       });
     }
-  }, [user]);
+  }, [profile]);
 
   // Fetch app settings
   const { data: appSettings } = useQuery({
     queryKey: ["app_settings"],
-    queryFn: () => appSettingsService.getAll(),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("app_settings")
+        .select("*")
+        .order("key");
+      
+      if (error) throw error;
+      return data;
+    },
   });
 
   const [propertyName, setPropertyName] = useState("");
@@ -54,10 +70,54 @@ const SettingsPage = () => {
     }
   }, [appSettings]);
 
+  // Update profile mutation
+  const updateProfile = useMutation({
+    mutationFn: async (data: typeof profileData) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const { error } = await supabase
+        .from("profiles")
+        .upsert({
+          user_id: user.id,
+          full_name: data.full_name,
+          email: data.email,
+        });
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["profile"] });
+      toast({
+        title: "Profile updated",
+        description: "Your profile has been successfully updated",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to update profile: " + error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   // Update app settings mutation
   const updateAppSettings = useMutation({
     mutationFn: async (name: string) => {
-      return appSettingsService.setPropertyName(name);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const { error } = await supabase
+        .from("app_settings")
+        .upsert({
+          key: "property_name",
+          value: { name },
+          description: "Property management system name",
+          updated_by: user.id,
+        });
+      
+      if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["app_settings"] });
@@ -69,7 +129,7 @@ const SettingsPage = () => {
     onError: (error) => {
       toast({
         title: "Error",
-        description: "Failed to update settings: " + (error as Error).message,
+        description: "Failed to update settings: " + error.message,
         variant: "destructive",
       });
     },
@@ -77,10 +137,7 @@ const SettingsPage = () => {
 
   const handleProfileSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    toast({
-      title: "Profile",
-      description: "Profile saved successfully",
-    });
+    updateProfile.mutate(profileData);
   };
 
   const handleAppSettingsSubmit = (e: React.FormEvent) => {
@@ -113,29 +170,39 @@ const SettingsPage = () => {
               <CardHeader>
                 <CardTitle>Profile Information</CardTitle>
                 <CardDescription>
-                  Your account settings
+                  Update your personal information and contact details
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleProfileSubmit} className="space-y-4">
                   <div className="space-y-2">
+                    <Label htmlFor="full_name">Full Name</Label>
+                    <Input
+                      id="full_name"
+                      placeholder="Enter your full name"
+                      value={profileData.full_name}
+                      onChange={(e) =>
+                        setProfileData({ ...profileData, full_name: e.target.value })
+                      }
+                    />
+                  </div>
+
+                  <div className="space-y-2">
                     <Label htmlFor="email">Email</Label>
                     <Input
                       id="email"
                       type="email"
+                      placeholder="your@email.com"
                       value={profileData.email}
-                      disabled
+                      onChange={(e) =>
+                        setProfileData({ ...profileData, email: e.target.value })
+                      }
                     />
-                    <p className="text-xs text-muted-foreground">
-                      Your login email address
-                    </p>
                   </div>
 
                   <Separator />
 
-                  <p className="text-sm text-muted-foreground">
-                    Contact an administrator to update your profile information.
-                  </p>
+                  <Button type="submit">Save Profile</Button>
                 </form>
               </CardContent>
             </Card>
@@ -183,10 +250,6 @@ const SettingsPage = () => {
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Version:</span>
                     <span className="font-medium">1.0.0</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Backend:</span>
-                    <span className="font-medium">Directus</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Status:</span>

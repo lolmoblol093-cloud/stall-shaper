@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import { KeyRound, Copy, Check, Eye, EyeOff } from "lucide-react";
 
 interface Tenant {
@@ -32,6 +33,7 @@ export const ResetTenantPasswordDialog: React.FC<ResetTenantPasswordDialogProps>
 }) => {
   const { toast } = useToast();
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -53,6 +55,57 @@ export const ResetTenantPasswordDialog: React.FC<ResetTenantPasswordDialogProps>
       title: "Copied",
       description: "Password copied to clipboard",
     });
+  };
+
+  const handleResetPassword = async () => {
+    if (!tenant || !tenant.email) {
+      toast({
+        title: "Error",
+        description: "Tenant has no email address",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!password || password.length < 6) {
+      toast({
+        title: "Error",
+        description: "Password must be at least 6 characters",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const { data, error } = await supabase.functions.invoke("create-tenant-account", {
+        body: {
+          email: tenant.email,
+          password: password,
+          tenant_id: tenant.id,
+        },
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Password Reset",
+        description: `New password set for ${tenant.business_name}. Share it with the tenant.`,
+      });
+
+      onOpenChange(false);
+      setPassword("");
+      setShowPassword(false);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleClose = () => {
@@ -90,20 +143,14 @@ export const ResetTenantPasswordDialog: React.FC<ResetTenantPasswordDialogProps>
                 </p>
               </div>
 
-              <div className="p-3 bg-primary/10 border border-primary/20 rounded-lg">
-                <p className="text-sm text-muted-foreground">
-                  <strong>Note:</strong> Generate a new password and share it securely with the tenant.
-                </p>
-              </div>
-
               <div className="space-y-2">
-                <Label htmlFor="new-password">Generated Password</Label>
+                <Label htmlFor="new-password">New Password</Label>
                 <div className="flex gap-2">
                   <div className="relative flex-1">
                     <Input
                       id="new-password"
                       type={showPassword ? "text" : "password"}
-                      placeholder="Click Generate"
+                      placeholder="Enter or generate password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       className="pr-10"
@@ -141,12 +188,19 @@ export const ResetTenantPasswordDialog: React.FC<ResetTenantPasswordDialogProps>
 
               <div className="flex gap-2 pt-4">
                 <Button variant="outline" onClick={handleClose} className="flex-1">
-                  Close
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleResetPassword}
+                  disabled={loading || !password}
+                  className="flex-1"
+                >
+                  {loading ? "Resetting..." : "Reset Password"}
                 </Button>
               </div>
 
               <p className="text-xs text-muted-foreground text-center">
-                Share this password securely with the tenant
+                Share the new password with the tenant manually
               </p>
             </>
           )}

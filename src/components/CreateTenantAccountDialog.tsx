@@ -10,8 +10,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { authService } from "@/services/authService";
-import { tenantService } from "@/services/tenantService";
+import { supabase } from "@/integrations/supabase/client";
 import { UserPlus, Copy, Check, Key, Mail } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
@@ -68,19 +67,27 @@ export const CreateTenantAccountDialog = ({
     const tempPassword = generatePassword();
 
     try {
-      const { success, error } = await authService.createTenantAccount(
-        email,
-        tempPassword,
-        tenant.id
-      );
+      // Create auth user using admin API via edge function
+      const { data, error } = await supabase.functions.invoke("create-tenant-account", {
+        body: {
+          email,
+          password: tempPassword,
+          tenant_id: tenant.id,
+        },
+      });
 
-      if (!success) {
-        throw new Error(error || "Failed to create account");
+      if (error) throw error;
+
+      if (data?.error) {
+        throw new Error(data.error);
       }
 
       // Update tenant email if it was changed
       if (customEmail && customEmail !== tenant.email) {
-        await tenantService.update(tenant.id, { email: customEmail });
+        await supabase
+          .from("tenants")
+          .update({ email: customEmail })
+          .eq("id", tenant.id);
       }
 
       setCredentials({ email, password: tempPassword });
@@ -168,18 +175,12 @@ export const CreateTenantAccountDialog = ({
               )}
             </div>
 
-            <div className="p-3 bg-primary/10 border border-primary/20 rounded-lg">
-              <p className="text-sm text-muted-foreground">
-                <strong>Note:</strong> This will create a portal account for the tenant.
-              </p>
-            </div>
-
             <Button
               onClick={handleCreateAccount}
               disabled={loading || (!tenant.email && !customEmail)}
               className="w-full"
             >
-              {loading ? "Creating Account..." : "Link Account"}
+              {loading ? "Creating Account..." : "Create Account"}
             </Button>
           </div>
         ) : (

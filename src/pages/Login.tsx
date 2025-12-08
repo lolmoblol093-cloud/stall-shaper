@@ -1,67 +1,106 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { authService } from "@/services/authService";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Building2, User } from "lucide-react";
+import { Session } from "@supabase/supabase-js";
 
 const Login = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(false);
   const [adminForm, setAdminForm] = useState({ email: "", password: "" });
 
   useEffect(() => {
     // Check for existing session
-    const checkSession = async () => {
-      const { user } = await authService.getSession();
-      if (user && user.role === 'admin') {
-        navigate("/dashboard");
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+    });
+
+    // Listen for auth changes - only redirect on actual auth events (login/signup)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setSession(session);
+      // Only redirect on SIGNED_IN event, not on initial load
+      if (event === 'SIGNED_IN' && session) {
+        checkUserRoleAndRedirect(session.user.id);
       }
-    };
-    checkSession();
-  }, [navigate]);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const checkUserRoleAndRedirect = async (userId: string) => {
+    try {
+      const { data: roles } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", userId);
+
+      if (roles && roles.length > 0) {
+        const isAdmin = roles.some((r) => r.role === "admin");
+        navigate(isAdmin ? "/dashboard" : "/");
+      } else {
+        navigate("/");
+      }
+    } catch (error) {
+      console.error("Error checking role:", error);
+      navigate("/");
+    }
+  };
 
   const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      const { user, error } = await authService.adminLogin(
-        adminForm.email,
-        adminForm.password
-      );
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: adminForm.email,
+        password: adminForm.password,
+      });
 
-      if (error) {
-        toast({
-          title: "Error",
-          description: error,
-          variant: "destructive",
-        });
-        setLoading(false);
-        return;
+      if (error) throw error;
+
+      // Verify admin role
+      if (data.user) {
+        const { data: roles } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", data.user.id);
+
+        const isAdmin = roles?.some((r) => r.role === "admin");
+        
+        if (!isAdmin) {
+          await supabase.auth.signOut();
+          toast({
+            title: "Access Denied",
+            description: "This account does not have admin privileges",
+            variant: "destructive",
+          });
+          setLoading(false);
+          return;
+        }
       }
 
-      if (user) {
-        toast({
-          title: "Login successful",
-          description: "Welcome back, Admin!",
-        });
-        navigate("/dashboard");
-      }
+      toast({
+        title: "Login successful",
+        description: "Welcome back, Admin!",
+      });
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.message || "Login failed",
+        description: error.message,
         variant: "destructive",
       });
     } finally {
       setLoading(false);
     }
   };
+
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">

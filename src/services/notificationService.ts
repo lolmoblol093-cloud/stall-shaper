@@ -1,95 +1,60 @@
-import { supabase } from '@/integrations/supabase/client';
-
-export interface Notification {
-  id: string;
-  title: string;
-  message: string;
-  type: string;
-  is_read: boolean;
-  reference_id: string | null;
-  reference_type: string | null;
-  created_at: string;
-}
+import { directus, Notification } from '@/integrations/directus/client';
+import { readItems, readItem, createItem, updateItem, deleteItem } from '@directus/sdk';
 
 export const notificationService = {
   async getAll(): Promise<Notification[]> {
-    const { data, error } = await supabase
-      .from('notifications')
-      .select('*')
-      .order('created_at', { ascending: false });
-    
-    if (error) throw error;
-    return data as Notification[];
+    const notifications = await directus.request(
+      readItems('notifications', {
+        sort: ['-created_at'],
+      })
+    );
+    return notifications as Notification[];
   },
 
   async getById(id: string): Promise<Notification | null> {
-    const { data, error } = await supabase
-      .from('notifications')
-      .select('*')
-      .eq('id', id)
-      .single();
-    
-    if (error) return null;
-    return data as Notification;
+    try {
+      const notification = await directus.request(readItem('notifications', id));
+      return notification as Notification;
+    } catch {
+      return null;
+    }
   },
 
   async getUnread(): Promise<Notification[]> {
-    const { data, error } = await supabase
-      .from('notifications')
-      .select('*')
-      .eq('is_read', false)
-      .order('created_at', { ascending: false });
-    
-    if (error) throw error;
-    return data as Notification[];
+    const notifications = await directus.request(
+      readItems('notifications', {
+        filter: { is_read: { _eq: false } },
+        sort: ['-created_at'],
+      })
+    );
+    return notifications as Notification[];
   },
 
-  async create(notificationData: Partial<Notification>): Promise<Notification> {
-    const { data, error } = await supabase
-      .from('notifications')
-      .insert({
-        title: notificationData.title!,
-        message: notificationData.message!,
-        type: notificationData.type || 'info',
+  async create(data: Partial<Notification>): Promise<Notification> {
+    const notification = await directus.request(
+      createItem('notifications', {
+        ...data,
         is_read: false,
-        reference_id: notificationData.reference_id || null,
-        reference_type: notificationData.reference_type || null,
+        created_at: new Date().toISOString(),
       })
-      .select()
-      .single();
-    
-    if (error) throw error;
-    return data as Notification;
+    );
+    return notification as Notification;
   },
 
   async markAsRead(id: string): Promise<Notification> {
-    const { data, error } = await supabase
-      .from('notifications')
-      .update({ is_read: true })
-      .eq('id', id)
-      .select()
-      .single();
-    
-    if (error) throw error;
-    return data as Notification;
+    const notification = await directus.request(
+      updateItem('notifications', id, { is_read: true })
+    );
+    return notification as Notification;
   },
 
   async markAllAsRead(): Promise<void> {
-    const { error } = await supabase
-      .from('notifications')
-      .update({ is_read: true })
-      .eq('is_read', false);
-    
-    if (error) throw error;
+    const unread = await this.getUnread();
+    await Promise.all(unread.map((n) => this.markAsRead(n.id)));
   },
 
   async delete(id: string): Promise<void> {
-    const { error } = await supabase
-      .from('notifications')
-      .delete()
-      .eq('id', id);
-    
-    if (error) throw error;
+    await directus.request(deleteItem('notifications', id));
   },
 };
 
