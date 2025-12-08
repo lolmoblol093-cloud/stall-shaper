@@ -79,7 +79,7 @@ const TenantPortal = () => {
           }
         }
 
-        const paymentsData = await paymentService.getByTenantId(tenantId);
+        const paymentsData = await paymentService.getByTenant(tenantId);
         setPayments(paymentsData);
       }
     } catch (error) {
