@@ -10,7 +10,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { authService } from "@/services/authService";
+import { tenantService } from "@/services/tenantService";
 import { UserPlus, Copy, Check, Key, Mail } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
@@ -67,27 +68,19 @@ export const CreateTenantAccountDialog = ({
     const tempPassword = generatePassword();
 
     try {
-      // Create auth user using admin API via edge function
-      const { data, error } = await supabase.functions.invoke("create-tenant-account", {
-        body: {
-          email,
-          password: tempPassword,
-          tenant_id: tenant.id,
-        },
-      });
+      const { success, error } = await authService.createTenantAccount(
+        email,
+        tempPassword,
+        tenant.id
+      );
 
-      if (error) throw error;
-
-      if (data?.error) {
-        throw new Error(data.error);
+      if (!success) {
+        throw new Error(error || "Failed to create account");
       }
 
       // Update tenant email if it was changed
       if (customEmail && customEmail !== tenant.email) {
-        await supabase
-          .from("tenants")
-          .update({ email: customEmail })
-          .eq("id", tenant.id);
+        await tenantService.update(tenant.id, { email: customEmail });
       }
 
       setCredentials({ email, password: tempPassword });
@@ -175,12 +168,19 @@ export const CreateTenantAccountDialog = ({
               )}
             </div>
 
+            <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+              <p className="text-sm text-muted-foreground">
+                <strong>Note:</strong> User creation requires Directus admin setup. 
+                Create the user in Directus admin panel first.
+              </p>
+            </div>
+
             <Button
               onClick={handleCreateAccount}
               disabled={loading || (!tenant.email && !customEmail)}
               className="w-full"
             >
-              {loading ? "Creating Account..." : "Create Account"}
+              {loading ? "Creating Account..." : "Link Account"}
             </Button>
           </div>
         ) : (
