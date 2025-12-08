@@ -1,72 +1,103 @@
-import { directus, Payment } from '@/integrations/directus/client';
-import { readItems, readItem, createItem, updateItem, deleteItem } from '@directus/sdk';
+import { supabase } from '@/integrations/supabase/client';
+
+export interface Payment {
+  id: string;
+  tenant_id: string;
+  amount: number;
+  payment_date: string;
+  payment_method: string | null;
+  status: 'pending' | 'completed' | 'failed' | null;
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
 
 export const paymentService = {
   async getAll(): Promise<Payment[]> {
-    const payments = await directus.request(
-      readItems('payments', {
-        sort: ['-payment_date'],
-      })
-    );
-    return payments as Payment[];
+    const { data, error } = await supabase
+      .from('payments')
+      .select('*')
+      .order('payment_date', { ascending: false });
+    
+    if (error) throw error;
+    return data as Payment[];
   },
 
   async getById(id: string): Promise<Payment | null> {
-    try {
-      const payment = await directus.request(readItem('payments', id));
-      return payment as Payment;
-    } catch {
-      return null;
-    }
+    const { data, error } = await supabase
+      .from('payments')
+      .select('*')
+      .eq('id', id)
+      .single();
+    
+    if (error) return null;
+    return data as Payment;
   },
 
   async getByTenant(tenantId: string): Promise<Payment[]> {
-    const payments = await directus.request(
-      readItems('payments', {
-        filter: { tenant_id: { _eq: tenantId } },
-        sort: ['-payment_date'],
-      })
-    );
-    return payments as Payment[];
+    const { data, error } = await supabase
+      .from('payments')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .order('payment_date', { ascending: false });
+    
+    if (error) throw error;
+    return data as Payment[];
   },
 
   async getRecent(limit: number = 10): Promise<Payment[]> {
-    const payments = await directus.request(
-      readItems('payments', {
-        sort: ['-payment_date'],
-        limit,
-      })
-    );
-    return payments as Payment[];
+    const { data, error } = await supabase
+      .from('payments')
+      .select('*')
+      .order('payment_date', { ascending: false })
+      .limit(limit);
+    
+    if (error) throw error;
+    return data as Payment[];
   },
 
-  async create(data: Partial<Payment>): Promise<Payment> {
-    const payment = await directus.request(
-      createItem('payments', {
-        ...data,
-        status: data.status || 'pending',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+  async create(paymentData: Partial<Payment>): Promise<Payment> {
+    const { data, error } = await supabase
+      .from('payments')
+      .insert({
+        tenant_id: paymentData.tenant_id!,
+        amount: paymentData.amount!,
+        payment_date: paymentData.payment_date!,
+        payment_method: paymentData.payment_method || null,
+        status: paymentData.status || 'pending',
+        notes: paymentData.notes || null,
+        created_by: paymentData.created_by || null,
       })
-    );
-    return payment as Payment;
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return data as Payment;
   },
 
-  async update(id: string, data: Partial<Payment>): Promise<Payment> {
-    const payment = await directus.request(
-      updateItem('payments', id, {
-        ...data,
-        updated_at: new Date().toISOString(),
-      })
-    );
-    return payment as Payment;
+  async update(id: string, paymentData: Partial<Payment>): Promise<Payment> {
+    const { data, error } = await supabase
+      .from('payments')
+      .update({ ...paymentData, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return data as Payment;
   },
 
   async delete(id: string): Promise<void> {
-    await directus.request(deleteItem('payments', id));
+    const { error } = await supabase
+      .from('payments')
+      .delete()
+      .eq('id', id);
+    
+    if (error) throw error;
   },
 
-  async updateStatus(id: string, status: Payment['status']): Promise<Payment> {
+  async updateStatus(id: string, status: 'pending' | 'completed' | 'failed'): Promise<Payment> {
     return this.update(id, { status });
   },
 };

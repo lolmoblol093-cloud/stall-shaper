@@ -1,5 +1,4 @@
-import { directus } from '@/integrations/directus/client';
-import { readItems, createItem } from '@directus/sdk';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface AuthUser {
   id: string;
@@ -7,73 +6,69 @@ export interface AuthUser {
   role: 'admin' | 'tenant' | 'guest';
 }
 
-const AUTH_STORAGE_KEY = 'directus_auth';
-
-// Store auth state in localStorage
-const getStoredAuth = (): { user: AuthUser | null; token: string | null } => {
-  try {
-    const stored = localStorage.getItem(AUTH_STORAGE_KEY);
-    if (stored) {
-      return JSON.parse(stored);
-    }
-  } catch {
-    // Ignore parse errors
-  }
-  return { user: null, token: null };
-};
-
-const setStoredAuth = (user: AuthUser | null, token: string | null) => {
-  if (user && token) {
-    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ user, token }));
-  } else {
-    localStorage.removeItem(AUTH_STORAGE_KEY);
-  }
-};
-
 export const authService = {
   // Get current session
   async getSession(): Promise<{ user: AuthUser | null }> {
-    const { user } = getStoredAuth();
-    return { user };
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session?.user) {
+      return { user: null };
+    }
+    
+    // Check if user is admin
+    const { data: roleData } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', session.user.id)
+      .single();
+    
+    const role = roleData?.role || 'guest';
+    
+    return { 
+      user: {
+        id: session.user.id,
+        email: session.user.email || '',
+        role: role as 'admin' | 'tenant' | 'guest',
+      }
+    };
   },
 
-  // Admin login - simplified for Directus static token auth
+  // Admin login
   async adminLogin(email: string, password: string): Promise<{ user: AuthUser | null; error: string | null }> {
     try {
-      // For static token auth, we validate against a configured admin
-      // In production, you'd use Directus user authentication
-      const DIRECTUS_URL = import.meta.env.VITE_DIRECTUS_URL;
-      
-      if (!DIRECTUS_URL) {
-        return { user: null, error: 'Directus not configured. Please set VITE_DIRECTUS_URL.' };
-      }
-
-      // Try to authenticate with Directus REST API
-      const response = await fetch(`${DIRECTUS_URL}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
       });
 
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({ errors: [{ message: 'Login failed' }] }));
-        return { user: null, error: error.errors?.[0]?.message || 'Invalid credentials' };
+      if (error) {
+        return { user: null, error: error.message };
       }
 
-      const data = await response.json();
-      
-      if (data.data?.access_token) {
-        const user: AuthUser = {
-          id: email,
-          email: email,
-          role: 'admin',
-        };
-        
-        setStoredAuth(user, data.data.access_token);
-        return { user, error: null };
+      if (!data.user) {
+        return { user: null, error: 'Login failed' };
       }
-      
-      return { user: null, error: 'Login failed' };
+
+      // Check if user has admin role
+      const { data: roleData } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', data.user.id)
+        .single();
+
+      if (roleData?.role !== 'admin') {
+        await supabase.auth.signOut();
+        return { user: null, error: 'Not authorized as admin' };
+      }
+
+      return { 
+        user: {
+          id: data.user.id,
+          email: data.user.email || '',
+          role: 'admin',
+        },
+        error: null 
+      };
     } catch (error: any) {
       console.error('Admin login error:', error);
       return { user: null, error: error.message || 'Login failed' };
@@ -90,72 +85,44 @@ export const authService = {
         return { user: null, error: 'Account temporarily locked. Please wait 15 minutes.' };
       }
 
-      const DIRECTUS_URL = import.meta.env.VITE_DIRECTUS_URL;
-      
-      if (!DIRECTUS_URL) {
-        return { user: null, error: 'Directus not configured' };
-      }
-
-      // Try Directus authentication
-      const response = await fetch(`${DIRECTUS_URL}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
       });
 
-      if (!response.ok) {
-        await this.logLoginAttempt(email, false, 'Invalid credentials');
+      if (error) {
+        await this.logLoginAttempt(email, false, error.message);
         return { user: null, error: 'Invalid credentials' };
       }
 
-      const data = await response.json();
-      
-      if (data.data?.access_token) {
-        // Check if this user is linked to a tenant
-        const tenantUsers = await directus.request(
-          readItems('tenant_users', {
-            filter: { user_id: { _eq: email } },
-            limit: 1,
-          })
-        );
-
-        if (!tenantUsers || tenantUsers.length === 0) {
-          // Check if there's a tenant with this email
-          const tenants = await directus.request(
-            readItems('tenants', {
-              filter: { email: { _eq: email } },
-              limit: 1,
-            })
-          );
-
-          if (tenants && tenants.length > 0) {
-            // Link user to tenant
-            await directus.request(
-              createItem('tenant_users', {
-                user_id: email,
-                tenant_id: tenants[0].id,
-              })
-            );
-          } else {
-            await this.logLoginAttempt(email, false, 'No tenant account found');
-            return { user: null, error: 'No tenant account found for this email.' };
-          }
-        }
-
-        await this.logLoginAttempt(email, true);
-        
-        const user: AuthUser = {
-          id: email,
-          email: email,
-          role: 'tenant',
-        };
-        
-        setStoredAuth(user, data.data.access_token);
-        return { user, error: null };
+      if (!data.user) {
+        await this.logLoginAttempt(email, false, 'No user returned');
+        return { user: null, error: 'Login failed' };
       }
-      
-      await this.logLoginAttempt(email, false, 'Invalid credentials');
-      return { user: null, error: 'Invalid credentials' };
+
+      // Check if user is linked to a tenant
+      const { data: tenantUser } = await supabase
+        .from('tenant_users')
+        .select('tenant_id')
+        .eq('user_id', data.user.id)
+        .single();
+
+      if (!tenantUser) {
+        await supabase.auth.signOut();
+        await this.logLoginAttempt(email, false, 'No tenant account');
+        return { user: null, error: 'No tenant account found for this email.' };
+      }
+
+      await this.logLoginAttempt(email, true);
+
+      return { 
+        user: {
+          id: data.user.id,
+          email: data.user.email || '',
+          role: 'tenant',
+        },
+        error: null 
+      };
     } catch (error: any) {
       console.error('Tenant login error:', error);
       await this.logLoginAttempt(email, false, error.message);
@@ -165,31 +132,23 @@ export const authService = {
 
   // Sign out
   async signOut(): Promise<void> {
-    setStoredAuth(null, null);
+    await supabase.auth.signOut();
   },
 
   // Check if account is locked (5+ failed attempts in 15 minutes)
   async checkAccountLock(email: string): Promise<boolean> {
     try {
-      // Get all failed attempts for this email
-      const attempts = await directus.request(
-        readItems('login_attempts', {
-          filter: {
-            email: { _eq: email },
-            success: { _eq: false },
-          },
-          sort: ['-created_at'],
-          limit: 10,
-        })
-      );
+      const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString();
       
-      // Filter attempts within last 15 minutes in JavaScript
-      const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
-      const recentFailures = attempts.filter(a => 
-        new Date(a.created_at) > fifteenMinutesAgo
-      );
+      const { data, error } = await supabase
+        .from('login_attempts')
+        .select('*')
+        .eq('email', email)
+        .eq('success', false)
+        .gte('created_at', fifteenMinutesAgo);
       
-      return recentFailures.length >= 5;
+      if (error) throw error;
+      return (data?.length || 0) >= 5;
     } catch (error) {
       console.error('Error checking account lock:', error);
       return false;
@@ -199,14 +158,14 @@ export const authService = {
   // Log login attempt
   async logLoginAttempt(email: string, success: boolean, failureReason?: string): Promise<void> {
     try {
-      await directus.request(
-        createItem('login_attempts', {
+      await supabase
+        .from('login_attempts')
+        .insert({
           email,
           success,
           failure_reason: failureReason || null,
           user_agent: navigator.userAgent,
-        })
-      );
+        });
     } catch (error) {
       console.error('Error logging login attempt:', error);
     }
@@ -215,14 +174,14 @@ export const authService = {
   // Get tenant data for a user
   async getTenantForUser(userId: string): Promise<string | null> {
     try {
-      const tenantUsers = await directus.request(
-        readItems('tenant_users', {
-          filter: { user_id: { _eq: userId } },
-          limit: 1,
-        })
-      );
+      const { data, error } = await supabase
+        .from('tenant_users')
+        .select('tenant_id')
+        .eq('user_id', userId)
+        .single();
       
-      return tenantUsers.length > 0 ? tenantUsers[0].tenant_id : null;
+      if (error) return null;
+      return data?.tenant_id || null;
     } catch (error) {
       console.error('Error getting tenant for user:', error);
       return null;
@@ -232,24 +191,30 @@ export const authService = {
   // Create tenant account
   async createTenantAccount(email: string, password: string, tenantId: string): Promise<{ success: boolean; error?: string }> {
     try {
-      // Check if tenant_users link exists
-      const existingLink = await directus.request(
-        readItems('tenant_users', {
-          filter: { 
-            user_id: { _eq: email }, 
-            tenant_id: { _eq: tenantId } 
-          },
-          limit: 1,
-        })
-      );
+      // Create user in Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email,
+        password,
+      });
 
-      if (!existingLink || existingLink.length === 0) {
-        await directus.request(
-          createItem('tenant_users', {
-            user_id: email,
-            tenant_id: tenantId,
-          })
-        );
+      if (authError) {
+        return { success: false, error: authError.message };
+      }
+
+      if (!authData.user) {
+        return { success: false, error: 'Failed to create user' };
+      }
+
+      // Link user to tenant
+      const { error: linkError } = await supabase
+        .from('tenant_users')
+        .insert({
+          user_id: authData.user.id,
+          tenant_id: tenantId,
+        });
+
+      if (linkError) {
+        return { success: false, error: linkError.message };
       }
 
       return { success: true };

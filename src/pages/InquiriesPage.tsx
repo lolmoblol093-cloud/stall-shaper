@@ -50,7 +50,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import inquiryService from "@/services/inquiryService";
-import { Inquiry } from "@/integrations/directus/client";
+import type { Inquiry } from "@/services/inquiryService";
 
 const InquiriesPage = () => {
   const [inquiries, setInquiries] = useState<Inquiry[]>([]);

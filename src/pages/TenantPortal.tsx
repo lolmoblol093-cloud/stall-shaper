@@ -27,7 +27,9 @@ import {
   RefreshCw
 } from "lucide-react";
 import { format, differenceInDays } from "date-fns";
-import type { Tenant, Stall, Payment } from "@/integrations/directus/client";
+import type { Tenant } from "@/services/tenantService";
+import type { Stall } from "@/services/stallService";
+import type { Payment } from "@/services/paymentService";
 
 const TenantPortal = () => {
   const navigate = useNavigate();
