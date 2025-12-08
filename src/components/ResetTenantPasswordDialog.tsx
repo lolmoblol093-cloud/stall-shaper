@@ -90,10 +90,9 @@ export const ResetTenantPasswordDialog: React.FC<ResetTenantPasswordDialogProps>
                 </p>
               </div>
 
-              <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+              <div className="p-3 bg-primary/10 border border-primary/20 rounded-lg">
                 <p className="text-sm text-muted-foreground">
-                  <strong>Note:</strong> Password reset must be done through the Directus admin panel.
-                  Generate a password here and update it in Directus.
+                  <strong>Note:</strong> Generate a new password and share it securely with the tenant.
                 </p>
               </div>
 
@@ -147,7 +146,7 @@ export const ResetTenantPasswordDialog: React.FC<ResetTenantPasswordDialogProps>
               </div>
 
               <p className="text-xs text-muted-foreground text-center">
-                Update the password in Directus and share it with the tenant
+                Share this password securely with the tenant
               </p>
             </>
           )}

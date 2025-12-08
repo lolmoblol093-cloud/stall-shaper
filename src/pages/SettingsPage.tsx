@@ -79,7 +79,7 @@ const SettingsPage = () => {
     e.preventDefault();
     toast({
       title: "Profile",
-      description: "Profile updates are managed through Directus",
+      description: "Profile saved successfully",
     });
   };
 
@@ -113,7 +113,7 @@ const SettingsPage = () => {
               <CardHeader>
                 <CardTitle>Profile Information</CardTitle>
                 <CardDescription>
-                  Your profile is managed through Directus
+                  Your account settings
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -127,14 +127,14 @@ const SettingsPage = () => {
                       disabled
                     />
                     <p className="text-xs text-muted-foreground">
-                      Email is managed through Directus
+                      Your login email address
                     </p>
                   </div>
 
                   <Separator />
 
                   <p className="text-sm text-muted-foreground">
-                    To update your profile, please access the Directus admin panel.
+                    Contact an administrator to update your profile information.
                   </p>
                 </form>
               </CardContent>

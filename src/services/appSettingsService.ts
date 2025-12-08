@@ -1,20 +1,35 @@
-import { directus, AppSetting } from '@/integrations/directus/client';
-import { readItems, createItem, updateItem } from '@directus/sdk';
+import { supabase } from '@/integrations/supabase/client';
+import type { Json } from '@/integrations/supabase/types';
+
+export interface AppSetting {
+  id: string;
+  key: string;
+  value: Json | null;
+  description: string | null;
+  updated_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
 
 export const appSettingsService = {
   async getAll(): Promise<AppSetting[]> {
-    const settings = await directus.request(readItems('app_settings'));
-    return settings as AppSetting[];
+    const { data, error } = await supabase
+      .from('app_settings')
+      .select('*');
+    
+    if (error) throw error;
+    return data as AppSetting[];
   },
 
   async getByKey(key: string): Promise<AppSetting | null> {
-    const settings = await directus.request(
-      readItems('app_settings', {
-        filter: { key: { _eq: key } },
-        limit: 1,
-      })
-    );
-    return (settings as AppSetting[])[0] || null;
+    const { data, error } = await supabase
+      .from('app_settings')
+      .select('*')
+      .eq('key', key)
+      .single();
+    
+    if (error) return null;
+    return data as AppSetting;
   },
 
   async getValue<T = unknown>(key: string): Promise<T | null> {
@@ -26,26 +41,33 @@ export const appSettingsService = {
     const existing = await this.getByKey(key);
     
     if (existing) {
-      const updated = await directus.request(
-        updateItem('app_settings', existing.id, {
-          value,
+      const { data, error } = await supabase
+        .from('app_settings')
+        .update({
+          value: value as Json,
           description,
           updated_at: new Date().toISOString(),
         })
-      );
-      return updated as AppSetting;
+        .eq('id', existing.id)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data as AppSetting;
     }
 
-    const created = await directus.request(
-      createItem('app_settings', {
+    const { data, error } = await supabase
+      .from('app_settings')
+      .insert({
         key,
-        value,
+        value: value as Json,
         description,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
       })
-    );
-    return created as AppSetting;
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return data as AppSetting;
   },
 
   async getPropertyName(): Promise<string> {

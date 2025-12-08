@@ -168,10 +168,9 @@ export const CreateTenantAccountDialog = ({
               )}
             </div>
 
-            <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+            <div className="p-3 bg-primary/10 border border-primary/20 rounded-lg">
               <p className="text-sm text-muted-foreground">
-                <strong>Note:</strong> User creation requires Directus admin setup. 
-                Create the user in Directus admin panel first.
+                <strong>Note:</strong> This will create a portal account for the tenant.
               </p>
             </div>
 
