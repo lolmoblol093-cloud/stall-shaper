@@ -17,7 +17,6 @@ import ReportsPage from "./pages/ReportsPage";
 import InquiriesPage from "./pages/InquiriesPage";
 import TenantLogin from "./pages/TenantLogin";
 import TenantPortal from "./pages/TenantPortal";
-import DataExportPage from "./pages/DataExportPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
@@ -95,14 +94,6 @@ const App = () => (
             element={
               <ProtectedRoute>
                 <InquiriesPage />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/data-export" 
-            element={
-              <ProtectedRoute>
-                <DataExportPage />
               </ProtectedRoute>
             } 
           />
