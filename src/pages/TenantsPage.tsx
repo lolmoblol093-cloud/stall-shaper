@@ -24,42 +24,30 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Search, Edit, Users, Map, Trash2, UserPlus, KeyRound } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
 import { StallSelectionMap } from "@/components/StallSelectionMap";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { CreateTenantAccountDialog } from "@/components/CreateTenantAccountDialog";
 import { ResetTenantPasswordDialog } from "@/components/ResetTenantPasswordDialog";
-
-interface Tenant {
-  id: string;
-  business_name: string;
-  contact_person: string;
-  email: string | null;
-  phone: string | null;
-  stall_number: string | null;
-  status: string | null;
-  monthly_rent: number | null;
-  lease_start_date: string | null;
-  lease_end_date: string | null;
-}
-
-interface Stall {
-  id: string;
-  stall_code: string;
-  floor: string;
-  occupancy_status: string;
-}
+import {
+  mockTenants,
+  mockStalls,
+  addTenant,
+  updateTenant,
+  deleteTenant,
+  Tenant,
+  Stall,
+} from "@/data/mockData";
 
 const TenantsPage = () => {
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [tenants, setTenants] = useState<Tenant[]>(mockTenants);
   const [availableStalls, setAvailableStalls] = useState<Stall[]>([]);
   const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [selectedStallFromMap, setSelectedStallFromMap] = useState<{ code: string; data: any } | null>(null);
   const [mapRefreshTrigger, setMapRefreshTrigger] = useState(0);
   const [tenantToDelete, setTenantToDelete] = useState<Tenant | null>(null);
@@ -81,61 +69,12 @@ const TenantsPage = () => {
   });
 
   useEffect(() => {
-    fetchTenants();
-    fetchAvailableStalls();
-    
-    // Set up real-time subscriptions
-    const tenantsChannel = supabase
-      .channel('tenants-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tenants' }, () => {
-        fetchTenants();
-        fetchAvailableStalls();
-        setMapRefreshTrigger(prev => prev + 1);
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'stalls' }, () => {
-        fetchAvailableStalls();
-        setMapRefreshTrigger(prev => prev + 1);
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(tenantsChannel);
-    };
+    refreshData();
   }, []);
 
-  const fetchTenants = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("tenants")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      setTenants(data || []);
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchAvailableStalls = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("stalls")
-        .select("id, stall_code, floor, occupancy_status")
-        .eq("occupancy_status", "vacant")
-        .order("stall_code");
-
-      if (error) throw error;
-      setAvailableStalls(data || []);
-    } catch (error: any) {
-      console.error("Error fetching stalls:", error);
-    }
+  const refreshData = () => {
+    setTenants([...mockTenants]);
+    setAvailableStalls(mockStalls.filter(s => s.occupancy_status === 'vacant'));
   };
 
   const filteredTenants = tenants.filter(tenant =>
@@ -144,189 +83,100 @@ const TenantsPage = () => {
     (tenant.stall_number && tenant.stall_number.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
-  const handleAddTenant = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("tenants")
-        .insert([{
-          business_name: newTenant.business_name,
-          contact_person: newTenant.contact_person,
-          email: newTenant.email || null,
-          phone: newTenant.phone || null,
-          stall_number: newTenant.stall_number || null,
-          status: "active",
-          monthly_rent: newTenant.monthly_rent ? parseFloat(newTenant.monthly_rent) : null,
-          lease_start_date: newTenant.lease_start_date || null,
-          lease_end_date: newTenant.lease_end_date || null,
-        }])
-        .select();
-
-      if (error) throw error;
-
-      // Update stall occupancy status
-      if (newTenant.stall_number) {
-        await supabase
-          .from("stalls")
-          .update({ occupancy_status: "occupied" })
-          .eq("stall_code", newTenant.stall_number);
-      }
-
-      toast({
-        title: "Tenant Added",
-        description: "New tenant has been successfully registered",
-      });
-      
-      setIsAddDialogOpen(false);
-      setNewTenant({
-        business_name: "",
-        contact_person: "",
-        email: "",
-        phone: "",
-        stall_number: "",
-        monthly_rent: "",
-        lease_start_date: "",
-        lease_end_date: "",
-      });
-      setSelectedStallFromMap(null);
-      
-      fetchTenants();
-      fetchAvailableStalls();
-    } catch (error: any) {
+  const handleAddTenant = () => {
+    if (!newTenant.business_name || !newTenant.contact_person) {
       toast({
         title: "Error",
-        description: error.message,
+        description: "Business name and contact person are required",
         variant: "destructive",
       });
+      return;
     }
+
+    addTenant({
+      business_name: newTenant.business_name,
+      contact_person: newTenant.contact_person,
+      email: newTenant.email || null,
+      phone: newTenant.phone || null,
+      stall_number: newTenant.stall_number || null,
+      status: "active",
+      monthly_rent: newTenant.monthly_rent ? parseFloat(newTenant.monthly_rent) : null,
+      lease_start_date: newTenant.lease_start_date || null,
+      lease_end_date: newTenant.lease_end_date || null,
+    });
+
+    toast({
+      title: "Tenant Added",
+      description: "New tenant has been successfully registered",
+    });
+    
+    setIsAddDialogOpen(false);
+    setNewTenant({
+      business_name: "",
+      contact_person: "",
+      email: "",
+      phone: "",
+      stall_number: "",
+      monthly_rent: "",
+      lease_start_date: "",
+      lease_end_date: "",
+    });
+    setSelectedStallFromMap(null);
+    refreshData();
+    setMapRefreshTrigger(prev => prev + 1);
   };
 
-  const handleEditTenant = async () => {
+  const handleEditTenant = () => {
     if (!selectedTenant) return;
 
-    try {
-      const { error } = await supabase
-        .from("tenants")
-        .update({
-          business_name: selectedTenant.business_name,
-          contact_person: selectedTenant.contact_person,
-          email: selectedTenant.email,
-          phone: selectedTenant.phone,
-          monthly_rent: selectedTenant.monthly_rent,
-          lease_start_date: selectedTenant.lease_start_date,
-          lease_end_date: selectedTenant.lease_end_date,
-        })
-        .eq("id", selectedTenant.id);
+    updateTenant(selectedTenant.id, {
+      business_name: selectedTenant.business_name,
+      contact_person: selectedTenant.contact_person,
+      email: selectedTenant.email,
+      phone: selectedTenant.phone,
+      monthly_rent: selectedTenant.monthly_rent,
+      lease_start_date: selectedTenant.lease_start_date,
+      lease_end_date: selectedTenant.lease_end_date,
+    });
 
-      if (error) throw error;
-
-      toast({
-        title: "Tenant Updated",
-        description: "Tenant information has been successfully updated",
-      });
-      
-      setIsEditDialogOpen(false);
-      setSelectedTenant(null);
-      fetchTenants();
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    }
+    toast({
+      title: "Tenant Updated",
+      description: "Tenant information has been successfully updated",
+    });
+    
+    setIsEditDialogOpen(false);
+    setSelectedTenant(null);
+    refreshData();
   };
 
-  const toggleTenantStatus = async (tenant: Tenant) => {
-    try {
-      const newStatus = tenant.status === "active" ? "inactive" : "active";
-      
-      const { error } = await supabase
-        .from("tenants")
-        .update({ status: newStatus })
-        .eq("id", tenant.id);
+  const toggleTenantStatus = (tenant: Tenant) => {
+    const newStatus = tenant.status === "active" ? "inactive" : "active";
+    updateTenant(tenant.id, { status: newStatus });
 
-      if (error) throw error;
-
-      // Update stall occupancy based on new status
-      if (tenant.stall_number) {
-        if (newStatus === "inactive") {
-          // Deactivating - free up the stall
-          await supabase
-            .from("stalls")
-            .update({ occupancy_status: "vacant" })
-            .eq("stall_code", tenant.stall_number);
-        } else {
-          // Activating - mark stall as occupied
-          await supabase
-            .from("stalls")
-            .update({ occupancy_status: "occupied" })
-            .eq("stall_code", tenant.stall_number);
-        }
-      }
-
-      toast({
-        title: "Status Updated",
-        description: `Tenant status changed to ${newStatus}`,
-      });
-      
-      fetchTenants();
-      fetchAvailableStalls();
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    }
+    toast({
+      title: "Status Updated",
+      description: `Tenant status changed to ${newStatus}`,
+    });
+    
+    refreshData();
+    setMapRefreshTrigger(prev => prev + 1);
   };
 
-  const handleDeleteTenant = async () => {
+  const handleDeleteTenant = () => {
     if (!tenantToDelete) return;
 
-    try {
-      // If tenant has a stall, free it up first
-      if (tenantToDelete.stall_number) {
-        await supabase
-          .from("stalls")
-          .update({ occupancy_status: "vacant" })
-          .eq("stall_code", tenantToDelete.stall_number);
-      }
+    deleteTenant(tenantToDelete.id);
 
-      // Delete the tenant
-      const { error } = await supabase
-        .from("tenants")
-        .delete()
-        .eq("id", tenantToDelete.id);
-
-      if (error) throw error;
-
-      toast({
-        title: "Tenant Deleted",
-        description: "Tenant has been successfully deleted",
-      });
-      
-      setIsDeleteDialogOpen(false);
-      setTenantToDelete(null);
-      fetchTenants();
-      fetchAvailableStalls();
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    }
+    toast({
+      title: "Tenant Deleted",
+      description: "Tenant has been successfully deleted",
+    });
+    
+    setIsDeleteDialogOpen(false);
+    setTenantToDelete(null);
+    refreshData();
+    setMapRefreshTrigger(prev => prev + 1);
   };
-
-  if (loading) {
-    return (
-      <DashboardLayout>
-        <div className="flex items-center justify-center h-64">
-          <p className="text-muted-foreground">Loading tenants...</p>
-        </div>
-      </DashboardLayout>
-    );
-  }
 
   return (
     <DashboardLayout>
@@ -499,7 +349,7 @@ const TenantsPage = () => {
                   <span>All Tenants</span>
                 </CardTitle>
                 <CardDescription>
-                  Total: {tenants.length} tenants | Active: {tenants.filter(t => t.status === "active").length}
+                  {tenants.filter(t => t.status === 'active').length} active tenants
                 </CardDescription>
               </div>
               <div className="relative">
@@ -519,6 +369,7 @@ const TenantsPage = () => {
                 <TableRow>
                   <TableHead>Business Name</TableHead>
                   <TableHead>Contact Person</TableHead>
+                  <TableHead>Email</TableHead>
                   <TableHead>Phone</TableHead>
                   <TableHead>Stall</TableHead>
                   <TableHead>Status</TableHead>
@@ -528,7 +379,7 @@ const TenantsPage = () => {
               <TableBody>
                 {filteredTenants.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center text-muted-foreground">
+                    <TableCell colSpan={7} className="text-center text-muted-foreground">
                       No tenants found
                     </TableCell>
                   </TableRow>
@@ -537,68 +388,71 @@ const TenantsPage = () => {
                     <TableRow key={tenant.id}>
                       <TableCell className="font-medium">{tenant.business_name}</TableCell>
                       <TableCell>{tenant.contact_person}</TableCell>
+                      <TableCell>{tenant.email || "-"}</TableCell>
                       <TableCell>{tenant.phone || "-"}</TableCell>
                       <TableCell>{tenant.stall_number || "-"}</TableCell>
                       <TableCell>
                         <Badge
-                          variant={tenant.status === "active" ? "default" : "secondary"}
-                          className={tenant.status === "active" ? "bg-status-active text-white" : "bg-status-inactive text-white"}
+                          variant="outline"
+                          className={tenant.status === "active" 
+                            ? "bg-green-500/10 text-green-600 border-green-500/20" 
+                            : "bg-red-500/10 text-red-600 border-red-500/20"
+                          }
                         >
                           {tenant.status}
                         </Badge>
                       </TableCell>
-                      <TableCell className="space-x-2">
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => {
-                            setSelectedTenant(tenant);
-                            setIsEditDialogOpen(true);
-                          }}
-                        >
-                          <Edit className="h-4 w-4 mr-1" />
-                          Edit
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => {
-                            setTenantForAccount(tenant);
-                            setIsCreateAccountDialogOpen(true);
-                          }}
-                        >
-                          <UserPlus className="h-4 w-4 mr-1" />
-                          Portal
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => {
-                            setTenantForPasswordReset(tenant);
-                            setIsResetPasswordDialogOpen(true);
-                          }}
-                        >
-                          <KeyRound className="h-4 w-4 mr-1" />
-                          Reset PW
-                        </Button>
-                        <Button 
-                          variant={tenant.status === "active" ? "destructive" : "default"}
-                          size="sm"
-                          onClick={() => toggleTenantStatus(tenant)}
-                        >
-                          {tenant.status === "active" ? "Deactivate" : "Activate"}
-                        </Button>
-                        <Button 
-                          variant="destructive" 
-                          size="sm"
-                          onClick={() => {
-                            setTenantToDelete(tenant);
-                            setIsDeleteDialogOpen(true);
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4 mr-1" />
-                          Delete
-                        </Button>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => {
+                              setSelectedTenant(tenant);
+                              setIsEditDialogOpen(true);
+                            }}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => toggleTenantStatus(tenant)}
+                          >
+                            {tenant.status === "active" ? "Deactivate" : "Activate"}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setTenantForAccount(tenant);
+                              setIsCreateAccountDialogOpen(true);
+                            }}
+                          >
+                            <UserPlus className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setTenantForPasswordReset(tenant);
+                              setIsResetPasswordDialogOpen(true);
+                            }}
+                          >
+                            <KeyRound className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-destructive"
+                            onClick={() => {
+                              setTenantToDelete(tenant);
+                              setIsDeleteDialogOpen(true);
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))
@@ -608,8 +462,9 @@ const TenantsPage = () => {
           </CardContent>
         </Card>
 
+        {/* Edit Dialog */}
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>Edit Tenant</DialogTitle>
               <DialogDescription>
@@ -644,7 +499,7 @@ const TenantsPage = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="edit-phone">Phone Number</Label>
+                  <Label htmlFor="edit-phone">Phone</Label>
                   <Input 
                     id="edit-phone" 
                     value={selectedTenant.phone || ""}
@@ -652,30 +507,12 @@ const TenantsPage = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="edit-monthly-rent">Monthly Rent (₱)</Label>
+                  <Label htmlFor="edit-rent">Monthly Rent (₱)</Label>
                   <Input 
-                    id="edit-monthly-rent" 
+                    id="edit-rent" 
                     type="number"
                     value={selectedTenant.monthly_rent || ""}
                     onChange={(e) => setSelectedTenant({...selectedTenant, monthly_rent: parseFloat(e.target.value)})}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-lease-start">Lease Start Date</Label>
-                  <Input 
-                    id="edit-lease-start" 
-                    type="date"
-                    value={selectedTenant.lease_start_date || ""}
-                    onChange={(e) => setSelectedTenant({...selectedTenant, lease_start_date: e.target.value})}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-lease-end">Lease End Date</Label>
-                  <Input 
-                    id="edit-lease-end" 
-                    type="date"
-                    value={selectedTenant.lease_end_date || ""}
-                    onChange={(e) => setSelectedTenant({...selectedTenant, lease_end_date: e.target.value})}
                   />
                 </div>
                 <Button onClick={handleEditTenant} className="w-full">
@@ -686,31 +523,33 @@ const TenantsPage = () => {
           </DialogContent>
         </Dialog>
 
+        {/* Delete Confirmation Dialog */}
         <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Delete Tenant</AlertDialogTitle>
               <AlertDialogDescription>
                 Are you sure you want to delete {tenantToDelete?.business_name}? This action cannot be undone.
-                {tenantToDelete?.stall_number && ` The stall ${tenantToDelete.stall_number} will be marked as vacant.`}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel onClick={() => setTenantToDelete(null)}>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={handleDeleteTenant} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDeleteTenant} className="bg-destructive text-destructive-foreground">
                 Delete
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
 
+        {/* Create Account Dialog */}
         <CreateTenantAccountDialog
           tenant={tenantForAccount}
           open={isCreateAccountDialogOpen}
           onOpenChange={setIsCreateAccountDialogOpen}
-          onAccountCreated={() => fetchTenants()}
+          onAccountCreated={refreshData}
         />
 
+        {/* Reset Password Dialog */}
         <ResetTenantPasswordDialog
           tenant={tenantForPasswordReset}
           open={isResetPasswordDialogOpen}
