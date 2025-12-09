@@ -7,17 +7,15 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import notificationService from "@/services/notificationService";
-import { Notification } from "@/integrations/directus/client";
+import { Notification } from "@/data/mockData";
 
 export const NotificationBell = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
-  const { toast } = useToast();
   const navigate = useNavigate();
 
   const fetchNotifications = async () => {
