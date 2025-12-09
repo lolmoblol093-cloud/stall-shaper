@@ -1,21 +1,17 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import LeaseTimeline from "@/components/LeaseTimeline";
 import { 
   Store, 
   LogOut, 
   Building2, 
-  Calendar, 
   Phone, 
   Mail, 
-  CreditCard,
   MapPin,
   User,
   Receipt,
@@ -26,229 +22,52 @@ import {
   TrendingUp,
   RefreshCw
 } from "lucide-react";
-import { Session } from "@supabase/supabase-js";
 import { format, differenceInDays } from "date-fns";
-
-interface TenantData {
-  id: string;
-  business_name: string;
-  contact_person: string;
-  email: string | null;
-  phone: string | null;
-  stall_number: string | null;
-  monthly_rent: number | null;
-  lease_start_date: string | null;
-  lease_end_date: string | null;
-  status: string | null;
-}
-
-interface Payment {
-  id: string;
-  amount: number;
-  payment_date: string;
-  payment_method: string | null;
-  status: string | null;
-  notes: string | null;
-}
-
-interface StallData {
-  id: string;
-  stall_code: string;
-  floor: string;
-  floor_size: string | null;
-  monthly_rent: number;
-}
+import { useAuth } from "@/contexts/AuthContext";
+import { mockTenants, mockPayments, mockStalls, Tenant, Payment, Stall } from "@/data/mockData";
 
 const TenantPortal = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [session, setSession] = useState<Session | null>(null);
+  const { isAuthenticated, logout, user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [tenant, setTenant] = useState<TenantData | null>(null);
-  const [stall, setStall] = useState<StallData | null>(null);
+  const [tenant, setTenant] = useState<Tenant | null>(null);
+  const [stall, setStall] = useState<Stall | null>(null);
   const [payments, setPayments] = useState<Payment[]>([]);
-  const [tenantUserId, setTenantUserId] = useState<string | null>(null);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      if (!session) {
-        navigate("/tenant-login");
-      } else {
-        fetchTenantData(session.user.id);
-      }
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      setSession(session);
-      if (event === 'SIGNED_OUT') {
-        navigate("/tenant-login");
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  // Real-time subscription for tenant, stall, and payment updates
-  useEffect(() => {
-    if (!tenant?.id) return;
-
-    const tenantChannel = supabase
-      .channel('tenant-portal-updates')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'tenants',
-          filter: `id=eq.${tenant.id}`
-        },
-        (payload) => {
-          if (payload.eventType === 'UPDATE') {
-            const updatedTenant = payload.new as TenantData;
-            setTenant(updatedTenant);
-            
-            // If stall number changed, fetch new stall data
-            if (updatedTenant.stall_number !== tenant.stall_number) {
-              if (updatedTenant.stall_number) {
-                supabase
-                  .from("stalls")
-                  .select("*")
-                  .eq("stall_code", updatedTenant.stall_number)
-                  .single()
-                  .then(({ data }) => {
-                    if (data) setStall(data);
-                  });
-              } else {
-                setStall(null);
-              }
-            }
-            
-            toast({
-              title: "Information Updated",
-              description: "Your tenant information has been updated.",
-            });
-          }
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'payments',
-          filter: `tenant_id=eq.${tenant.id}`
-        },
-        (payload) => {
-          if (payload.eventType === 'INSERT') {
-            setPayments(prev => [payload.new as Payment, ...prev]);
-            toast({
-              title: "New Payment Recorded",
-              description: `A payment of ₱${(payload.new as Payment).amount.toLocaleString()} has been recorded.`,
-            });
-          } else if (payload.eventType === 'UPDATE') {
-            setPayments(prev => prev.map(p => p.id === (payload.new as Payment).id ? payload.new as Payment : p));
-            toast({
-              title: "Payment Updated",
-              description: "A payment status has been updated.",
-            });
-          } else if (payload.eventType === 'DELETE') {
-            setPayments(prev => prev.filter(p => p.id !== (payload.old as Payment).id));
-          }
-        }
-      )
-      .subscribe();
-
-    // Stall updates subscription
-    const stallChannel = stall?.id ? supabase
-      .channel('tenant-stall-updates')
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'stalls',
-          filter: `id=eq.${stall.id}`
-        },
-        (payload) => {
-          setStall(payload.new as StallData);
-          toast({
-            title: "Stall Updated",
-            description: "Your stall information has been updated.",
-          });
-        }
-      )
-      .subscribe() : null;
-
-    return () => {
-      supabase.removeChannel(tenantChannel);
-      if (stallChannel) supabase.removeChannel(stallChannel);
-    };
-  }, [tenant?.id, stall?.id, tenant?.stall_number]);
-
-  const fetchTenantData = async (userId: string) => {
-    try {
-      const { data: tenantUser } = await supabase
-        .from("tenant_users")
-        .select("tenant_id")
-        .eq("user_id", userId)
-        .single();
-
-      if (!tenantUser) {
-        toast({
-          title: "Error",
-          description: "No tenant account linked. Please contact the property manager.",
-          variant: "destructive",
-        });
-        await supabase.auth.signOut();
-        return;
-      }
-
-      setTenantUserId(tenantUser.tenant_id);
-
-      const { data: tenantData } = await supabase
-        .from("tenants")
-        .select("*")
-        .eq("id", tenantUser.tenant_id)
-        .single();
-
-      if (tenantData) {
-        setTenant(tenantData);
-
-        if (tenantData.stall_number) {
-          const { data: stallData } = await supabase
-            .from("stalls")
-            .select("*")
-            .eq("stall_code", tenantData.stall_number)
-            .single();
-          
-          if (stallData) {
-            setStall(stallData);
-          }
-        }
-
-        const { data: paymentsData } = await supabase
-          .from("payments")
-          .select("*")
-          .eq("tenant_id", tenantUser.tenant_id)
-          .order("payment_date", { ascending: false });
-
-        if (paymentsData) {
-          setPayments(paymentsData);
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching tenant data:", error);
-    } finally {
-      setLoading(false);
+    if (!isAuthenticated) {
+      navigate("/tenant-login");
+      return;
     }
+    fetchTenantData();
+  }, [isAuthenticated]);
+
+  const fetchTenantData = async () => {
+    setLoading(true);
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    // Get first tenant for demo
+    const tenantData = mockTenants[0];
+    if (tenantData) {
+      setTenant(tenantData);
+
+      if (tenantData.stall_number) {
+        const stallData = mockStalls.find(s => s.stall_code === tenantData.stall_number);
+        if (stallData) setStall(stallData);
+      }
+
+      const tenantPayments = mockPayments.filter(p => p.tenant_id === tenantData.id);
+      setPayments(tenantPayments);
+    }
+    setLoading(false);
   };
 
   const handleRefresh = async () => {
-    if (!session?.user.id) return;
     setRefreshing(true);
-    await fetchTenantData(session.user.id);
+    await fetchTenantData();
     setRefreshing(false);
     toast({
       title: "Refreshed",
@@ -256,8 +75,8 @@ const TenantPortal = () => {
     });
   };
 
-  const handleSignOut = async () => {
-    await supabase.auth.signOut();
+  const handleSignOut = () => {
+    logout();
     navigate("/tenant-login");
   };
 
@@ -291,7 +110,6 @@ const TenantPortal = () => {
     const endDate = new Date(tenant.lease_end_date);
     const today = new Date();
     
-    // Reset times to compare dates only
     startDate.setHours(0, 0, 0, 0);
     endDate.setHours(0, 0, 0, 0);
     today.setHours(0, 0, 0, 0);
@@ -303,7 +121,6 @@ const TenantPortal = () => {
     const isExpired = today > endDate;
     const isExpiringSoon = !isExpired && daysRemaining <= 30;
     
-    // Calculate percentage: 0% at start, 100% at end
     let percentage = 0;
     if (totalLeaseDays > 0) {
       percentage = Math.min(100, Math.max(0, (daysElapsed / totalLeaseDays) * 100));
@@ -505,7 +322,7 @@ const TenantPortal = () => {
                   {stall && (
                     <>
                       <div className="flex items-center gap-3">
-                        <Building2 className="h-4 w-4 text-muted-foreground" />
+                        <MapPin className="h-4 w-4 text-muted-foreground" />
                         <div>
                           <p className="text-sm text-muted-foreground">Floor</p>
                           <p className="font-medium">{stall.floor}</p>
@@ -515,7 +332,7 @@ const TenantPortal = () => {
                       {stall.floor_size && (
                         <>
                           <div className="flex items-center gap-3">
-                            <MapPin className="h-4 w-4 text-muted-foreground" />
+                            <div className="h-4 w-4" />
                             <div>
                               <p className="text-sm text-muted-foreground">Floor Size</p>
                               <p className="font-medium">{stall.floor_size}</p>
@@ -527,7 +344,7 @@ const TenantPortal = () => {
                     </>
                   )}
                   <div className="flex items-center gap-3">
-                    <CreditCard className="h-4 w-4 text-muted-foreground" />
+                    <Receipt className="h-4 w-4 text-muted-foreground" />
                     <div>
                       <p className="text-sm text-muted-foreground">Monthly Rent</p>
                       <p className="font-medium text-lg text-primary">
@@ -535,41 +352,21 @@ const TenantPortal = () => {
                       </p>
                     </div>
                   </div>
-                  <Separator />
-                  <div className="flex items-center gap-3">
-                    <Calendar className="h-4 w-4 text-muted-foreground" />
-                    <div className="flex-1">
-                      <p className="text-sm text-muted-foreground">Lease Period</p>
-                      <p className="font-medium">
-                        {tenant.lease_start_date 
-                          ? format(new Date(tenant.lease_start_date), "MMM d, yyyy")
-                          : "N/A"
-                        }
-                        {" - "}
-                        {tenant.lease_end_date 
-                          ? format(new Date(tenant.lease_end_date), "MMM d, yyyy")
-                          : "N/A"
-                        }
-                      </p>
-                      {tenant.lease_start_date && tenant.lease_end_date && (
-                        <LeaseTimeline 
-                          startDate={tenant.lease_start_date} 
-                          endDate={tenant.lease_end_date} 
-                        />
-                      )}
-                    </div>
-                  </div>
                 </>
               ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <MapPin className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                  <p>No stall assigned yet</p>
-                  <p className="text-sm">Contact the property manager for stall assignment</p>
-                </div>
+                <p className="text-muted-foreground">No stall assigned</p>
               )}
             </CardContent>
           </Card>
         </div>
+
+        {/* Lease Timeline */}
+        {tenant?.lease_start_date && tenant?.lease_end_date && (
+          <LeaseTimeline
+            startDate={tenant.lease_start_date}
+            endDate={tenant.lease_end_date}
+          />
+        )}
 
         {/* Payment History */}
         <Card>
@@ -578,50 +375,37 @@ const TenantPortal = () => {
               <Receipt className="h-5 w-5 text-primary" />
               Payment History
             </CardTitle>
-            <CardDescription>Your complete payment transactions</CardDescription>
+            <CardDescription>Your recent payment records</CardDescription>
           </CardHeader>
           <CardContent>
             {payments.length > 0 ? (
               <div className="space-y-3">
                 {payments.map((payment) => (
-                  <div
-                    key={payment.id}
-                    className="flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
-                  >
-                    <div className="flex items-center gap-4">
+                  <div key={payment.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                    <div className="flex items-center gap-3">
                       <div className={`p-2 rounded-full ${
-                        payment.status === "completed" 
-                          ? "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400"
-                          : payment.status === "pending"
-                          ? "bg-yellow-100 text-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-400"
-                          : "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400"
+                        payment.status === 'completed' ? 'bg-green-500/10' : 'bg-yellow-500/10'
                       }`}>
-                        {payment.status === "completed" ? (
-                          <CheckCircle className="h-4 w-4" />
+                        {payment.status === 'completed' ? (
+                          <CheckCircle className="h-4 w-4 text-green-600" />
                         ) : (
-                          <AlertCircle className="h-4 w-4" />
+                          <AlertCircle className="h-4 w-4 text-yellow-600" />
                         )}
                       </div>
                       <div>
                         <p className="font-medium">₱{payment.amount.toLocaleString()}</p>
                         <p className="text-sm text-muted-foreground">
-                          {format(new Date(payment.payment_date), "MMMM d, yyyy")}
+                          {format(new Date(payment.payment_date), 'MMM dd, yyyy')}
                         </p>
-                        {payment.notes && (
-                          <p className="text-xs text-muted-foreground mt-1">{payment.notes}</p>
-                        )}
                       </div>
                     </div>
                     <div className="text-right">
-                      <Badge variant={
-                        payment.status === "completed" ? "default" :
-                        payment.status === "pending" ? "secondary" : "destructive"
-                      }>
+                      <Badge variant={payment.status === 'completed' ? 'default' : 'secondary'}>
                         {payment.status}
                       </Badge>
                       {payment.payment_method && (
                         <p className="text-xs text-muted-foreground mt-1">
-                          via {payment.payment_method}
+                          {payment.payment_method}
                         </p>
                       )}
                     </div>
@@ -629,40 +413,11 @@ const TenantPortal = () => {
                 ))}
               </div>
             ) : (
-              <div className="text-center py-12 text-muted-foreground">
-                <Receipt className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                <p>No payment records found</p>
-                <p className="text-sm">Your payment history will appear here</p>
-              </div>
+              <p className="text-center text-muted-foreground py-8">No payment records found</p>
             )}
           </CardContent>
         </Card>
-
-        {/* Quick Actions */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Quick Links</CardTitle>
-            <CardDescription>Explore the property marketplace</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-3">
-              <Button variant="outline" onClick={() => navigate("/")}>
-                <Store className="h-4 w-4 mr-2" />
-                View Marketplace
-              </Button>
-              <Button variant="outline" onClick={() => navigate("/guest")}>
-                <Building2 className="h-4 w-4 mr-2" />
-                View Directory
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
       </main>
-
-      {/* Footer */}
-      <footer className="border-t mt-12 py-6 text-center text-sm text-muted-foreground">
-        <p>© {new Date().getFullYear()} Property Management System</p>
-      </footer>
     </div>
   );
 };

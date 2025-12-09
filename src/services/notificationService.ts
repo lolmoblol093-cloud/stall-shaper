@@ -1,60 +1,59 @@
-import { directus, Notification } from '@/integrations/directus/client';
-import { readItems, readItem, createItem, updateItem, deleteItem } from '@directus/sdk';
+import { mockNotifications, Notification } from '@/data/mockData';
+
+// Local state for mock data
+let notifications = [...mockNotifications];
 
 export const notificationService = {
   async getAll(): Promise<Notification[]> {
-    const notifications = await directus.request(
-      readItems('notifications', {
-        sort: ['-created_at'],
-      })
+    return [...notifications].sort((a, b) => 
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     );
-    return notifications as Notification[];
   },
 
   async getById(id: string): Promise<Notification | null> {
-    try {
-      const notification = await directus.request(readItem('notifications', id));
-      return notification as Notification;
-    } catch {
-      return null;
-    }
+    return notifications.find(n => n.id === id) || null;
   },
 
   async getUnread(): Promise<Notification[]> {
-    const notifications = await directus.request(
-      readItems('notifications', {
-        filter: { is_read: { _eq: false } },
-        sort: ['-created_at'],
-      })
-    );
-    return notifications as Notification[];
+    return notifications
+      .filter(n => !n.is_read)
+      .sort((a, b) => 
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
   },
 
   async create(data: Partial<Notification>): Promise<Notification> {
-    const notification = await directus.request(
-      createItem('notifications', {
-        ...data,
-        is_read: false,
-        created_at: new Date().toISOString(),
-      })
-    );
-    return notification as Notification;
+    const newNotification: Notification = {
+      id: `notif-${Date.now()}`,
+      title: data.title || '',
+      message: data.message || '',
+      type: data.type || 'info',
+      is_read: false,
+      reference_id: data.reference_id,
+      reference_type: data.reference_type,
+      created_at: new Date().toISOString(),
+    };
+    notifications.push(newNotification);
+    return newNotification;
   },
 
   async markAsRead(id: string): Promise<Notification> {
-    const notification = await directus.request(
-      updateItem('notifications', id, { is_read: true })
-    );
-    return notification as Notification;
+    const index = notifications.findIndex(n => n.id === id);
+    if (index === -1) throw new Error('Notification not found');
+    
+    notifications[index] = {
+      ...notifications[index],
+      is_read: true,
+    };
+    return notifications[index];
   },
 
   async markAllAsRead(): Promise<void> {
-    const unread = await this.getUnread();
-    await Promise.all(unread.map((n) => this.markAsRead(n.id)));
+    notifications = notifications.map(n => ({ ...n, is_read: true }));
   },
 
   async delete(id: string): Promise<void> {
-    await directus.request(deleteItem('notifications', id));
+    notifications = notifications.filter(n => n.id !== id);
   },
 };
 
