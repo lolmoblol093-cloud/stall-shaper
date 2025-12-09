@@ -108,11 +108,6 @@ const Login = () => {
               View as Guest
             </Button>
           </div>
-          <div className="mt-4 p-3 bg-muted rounded-lg text-sm text-muted-foreground">
-            <p className="font-medium mb-1">Demo Credentials:</p>
-            <p>Email: admin@example.com</p>
-            <p>Password: admin123</p>
-          </div>
         </CardContent>
       </Card>
     </div>

@@ -127,11 +127,6 @@ const TenantLogin = () => {
             </p>
           </div>
           
-          <div className="mt-4 p-3 bg-muted rounded-lg text-sm text-muted-foreground">
-            <p className="font-medium mb-1">Demo:</p>
-            <p>Use any tenant email (e.g., tenant1@example.com)</p>
-            <p>Password: tenant123</p>
-          </div>
         </CardContent>
       </Card>
     </div>
