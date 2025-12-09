@@ -1,13 +1,11 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
 import { 
   Building2, 
   Phone, 
   Home,
-  LogOut,
   Store,
   Layers,
   ChevronRight,
@@ -19,9 +17,7 @@ import {
 import { DirectoryMap } from "@/components/DirectoryMap";
 import { StallInquiryForm } from "@/components/StallInquiryForm";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
-import { Session } from "@supabase/supabase-js";
+import { getAvailableStalls } from "@/data/mockData";
 
 interface AvailableStall {
   id: string;
@@ -33,39 +29,11 @@ interface AvailableStall {
 
 const GuestView = () => {
   const navigate = useNavigate();
-  const { toast } = useToast();
   const [displayMode, setDisplayMode] = useState<"list" | "map">("list");
   const [selectedFloor, setSelectedFloor] = useState<string>("all");
-  const [session, setSession] = useState<Session | null>(null);
-  const [availableStalls, setAvailableStalls] = useState<AvailableStall[]>([]);
-  const [loading, setLoading] = useState(true);
   const [inquiryStall, setInquiryStall] = useState<{ id: string; stallCode: string } | null>(null);
 
   const floors = ["all", "Ground Floor", "Second Floor", "Third Floor"];
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
-
-    fetchData();
-
-    const stallsChannel = supabase
-      .channel('stalls-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'stalls' }, () => {
-        fetchData();
-      })
-      .subscribe();
-
-    return () => {
-      subscription.unsubscribe();
-      supabase.removeChannel(stallsChannel);
-    };
-  }, []);
 
   const normalizeFloorName = (floor: string): string => {
     const lowerFloor = floor.toLowerCase().trim();
@@ -75,50 +43,15 @@ const GuestView = () => {
     return floor;
   };
 
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      const { data: stallsData, error: stallsError } = await supabase
-        .from('stalls')
-        .select('*');
-
-      if (stallsError) throw stallsError;
-
-      const availableStallsList: AvailableStall[] = (stallsData || [])
-        .filter(stall => stall.occupancy_status === 'vacant')
-        .map(stall => ({
-          id: stall.id,
-          stallCode: stall.stall_code,
-          floor: normalizeFloorName(stall.floor),
-          floorSize: stall.floor_size || undefined,
-          monthlyRent: Number(stall.monthly_rent),
-        }));
-
-      setAvailableStalls(availableStallsList);
-    } catch (error) {
-      console.error('Error fetching data:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load stall data",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleLogout = async () => {
-    try {
-      await supabase.auth.signOut();
-      toast({
-        title: "Logged out",
-        description: "You have been logged out successfully",
-      });
-    } catch (error) {
-      console.log("Logout error (ignoring):", error);
-    }
-    navigate("/login");
-  };
+  const availableStalls: AvailableStall[] = useMemo(() => {
+    return getAvailableStalls().map(stall => ({
+      id: stall.id,
+      stallCode: stall.stall_code,
+      floor: normalizeFloorName(stall.floor),
+      floorSize: stall.floor_size || undefined,
+      monthlyRent: stall.monthly_rent,
+    }));
+  }, []);
 
   const filteredStalls = availableStalls.filter(stall => {
     const matchesFloor = selectedFloor === "all" || stall.floor === selectedFloor;
@@ -158,24 +91,13 @@ const GuestView = () => {
                 <Store className="h-4 w-4 mr-2" />
                 Tenant Portal
               </Button>
-              {session ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleLogout}
-                >
-                  <LogOut className="h-4 w-4 mr-2" />
-                  Logout
-                </Button>
-              ) : (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => navigate("/login")}
-                >
-                  Admin
-                </Button>
-              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate("/login")}
+              >
+                Admin
+              </Button>
             </div>
           </div>
         </div>
@@ -256,19 +178,7 @@ const GuestView = () => {
         {/* List View */}
         {displayMode === "list" && (
           <>
-            {loading ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {[1, 2, 3, 4, 5, 6].map((i) => (
-                  <Card key={i}>
-                    <CardContent className="p-5 space-y-4">
-                      <Skeleton className="h-6 w-1/2" />
-                      <Skeleton className="h-8 w-2/3" />
-                      <Skeleton className="h-10 w-full" />
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            ) : filteredStalls.length === 0 ? (
+            {filteredStalls.length === 0 ? (
               <Card className="border-dashed">
                 <CardContent className="p-12 text-center">
                   <div className="p-4 bg-muted rounded-full w-fit mx-auto mb-4">
