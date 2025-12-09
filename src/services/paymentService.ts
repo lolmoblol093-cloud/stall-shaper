@@ -1,69 +1,66 @@
-import { directus, Payment } from '@/integrations/directus/client';
-import { readItems, readItem, createItem, updateItem, deleteItem } from '@directus/sdk';
+import { mockPayments, Payment } from '@/data/mockData';
+
+// Local state for mock data
+let payments = [...mockPayments];
 
 export const paymentService = {
   async getAll(): Promise<Payment[]> {
-    const payments = await directus.request(
-      readItems('payments', {
-        sort: ['-payment_date'],
-      })
+    return [...payments].sort((a, b) => 
+      new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime()
     );
-    return payments as Payment[];
   },
 
   async getById(id: string): Promise<Payment | null> {
-    try {
-      const payment = await directus.request(readItem('payments', id));
-      return payment as Payment;
-    } catch {
-      return null;
-    }
+    return payments.find(p => p.id === id) || null;
   },
 
   async getByTenant(tenantId: string): Promise<Payment[]> {
-    const payments = await directus.request(
-      readItems('payments', {
-        filter: { tenant_id: { _eq: tenantId } },
-        sort: ['-payment_date'],
-      })
-    );
-    return payments as Payment[];
+    return payments
+      .filter(p => p.tenant_id === tenantId)
+      .sort((a, b) => 
+        new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime()
+      );
   },
 
   async getRecent(limit: number = 10): Promise<Payment[]> {
-    const payments = await directus.request(
-      readItems('payments', {
-        sort: ['-payment_date'],
-        limit,
-      })
-    );
-    return payments as Payment[];
+    return [...payments]
+      .sort((a, b) => 
+        new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime()
+      )
+      .slice(0, limit);
   },
 
   async create(data: Partial<Payment>): Promise<Payment> {
-    const payment = await directus.request(
-      createItem('payments', {
-        ...data,
-        status: data.status || 'pending',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-    );
-    return payment as Payment;
+    const newPayment: Payment = {
+      id: `payment-${Date.now()}`,
+      tenant_id: data.tenant_id || '',
+      amount: data.amount || 0,
+      payment_date: data.payment_date || new Date().toISOString(),
+      payment_method: data.payment_method,
+      status: data.status || 'pending',
+      notes: data.notes,
+      created_by: data.created_by,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    payments.push(newPayment);
+    return newPayment;
   },
 
   async update(id: string, data: Partial<Payment>): Promise<Payment> {
-    const payment = await directus.request(
-      updateItem('payments', id, {
-        ...data,
-        updated_at: new Date().toISOString(),
-      })
-    );
-    return payment as Payment;
+    const index = payments.findIndex(p => p.id === id);
+    if (index === -1) throw new Error('Payment not found');
+    
+    payments[index] = {
+      ...payments[index],
+      ...data,
+      updated_at: new Date().toISOString(),
+    };
+    return payments[index];
   },
 
   async delete(id: string): Promise<void> {
-    await directus.request(deleteItem('payments', id));
+    payments = payments.filter(p => p.id !== id);
   },
 
   async updateStatus(id: string, status: Payment['status']): Promise<Payment> {

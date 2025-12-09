@@ -1,59 +1,58 @@
-import { directus, Inquiry } from '@/integrations/directus/client';
-import { readItems, readItem, createItem, updateItem, deleteItem } from '@directus/sdk';
+import { mockInquiries, Inquiry } from '@/data/mockData';
+
+// Local state for mock data
+let inquiries = [...mockInquiries];
 
 export const inquiryService = {
   async getAll(): Promise<Inquiry[]> {
-    const inquiries = await directus.request(
-      readItems('inquiries', {
-        sort: ['-created_at'],
-      })
+    return [...inquiries].sort((a, b) => 
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     );
-    return inquiries as Inquiry[];
   },
 
   async getById(id: string): Promise<Inquiry | null> {
-    try {
-      const inquiry = await directus.request(readItem('inquiries', id));
-      return inquiry as Inquiry;
-    } catch {
-      return null;
-    }
+    return inquiries.find(i => i.id === id) || null;
   },
 
   async getPending(): Promise<Inquiry[]> {
-    const inquiries = await directus.request(
-      readItems('inquiries', {
-        filter: { status: { _eq: 'pending' } },
-        sort: ['-created_at'],
-      })
-    );
-    return inquiries as Inquiry[];
+    return inquiries
+      .filter(i => i.status === 'pending')
+      .sort((a, b) => 
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
   },
 
   async create(data: Partial<Inquiry>): Promise<Inquiry> {
-    const inquiry = await directus.request(
-      createItem('inquiries', {
-        ...data,
-        status: 'pending',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-    );
-    return inquiry as Inquiry;
+    const newInquiry: Inquiry = {
+      id: `inquiry-${Date.now()}`,
+      stall_id: data.stall_id,
+      stall_code: data.stall_code || '',
+      name: data.name || '',
+      email: data.email || '',
+      phone: data.phone,
+      message: data.message,
+      status: 'pending',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    inquiries.push(newInquiry);
+    return newInquiry;
   },
 
   async update(id: string, data: Partial<Inquiry>): Promise<Inquiry> {
-    const inquiry = await directus.request(
-      updateItem('inquiries', id, {
-        ...data,
-        updated_at: new Date().toISOString(),
-      })
-    );
-    return inquiry as Inquiry;
+    const index = inquiries.findIndex(i => i.id === id);
+    if (index === -1) throw new Error('Inquiry not found');
+    
+    inquiries[index] = {
+      ...inquiries[index],
+      ...data,
+      updated_at: new Date().toISOString(),
+    };
+    return inquiries[index];
   },
 
   async delete(id: string): Promise<void> {
-    await directus.request(deleteItem('inquiries', id));
+    inquiries = inquiries.filter(i => i.id !== id);
   },
 
   async updateStatus(id: string, status: Inquiry['status']): Promise<Inquiry> {
