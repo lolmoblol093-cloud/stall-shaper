@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -37,25 +39,12 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { 
-  mockPayments, 
-  mockTenants, 
-  addPayment, 
-  Payment 
-} from "@/data/mockData";
 
 const PaymentsPage = () => {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [payments, setPayments] = useState<Payment[]>(mockPayments);
-  const [formData, setFormData] = useState<{
-    tenant_id: string;
-    amount: string;
-    payment_date: Date;
-    payment_method: string;
-    status: 'completed' | 'pending' | 'failed';
-    notes: string;
-  }>({
+  const [formData, setFormData] = useState({
     tenant_id: "",
     amount: "",
     payment_date: new Date(),
@@ -64,10 +53,44 @@ const PaymentsPage = () => {
     notes: "",
   });
 
-  const activeTenants = mockTenants.filter(t => t.status === 'active');
+  // Fetch payments
+  const { data: payments, isLoading } = useQuery({
+    queryKey: ["payments"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("payments")
+        .select(`
+          *,
+          tenants (
+            business_name,
+            contact_person
+          )
+        `)
+        .order("payment_date", { ascending: false });
+      
+      if (error) throw error;
+      return data;
+    },
+  });
 
+  // Fetch tenants for the dropdown
+  const { data: tenants } = useQuery({
+    queryKey: ["tenants"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("tenants")
+        .select("id, business_name, monthly_rent")
+        .eq("status", "active")
+        .order("business_name");
+      
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Auto-fill amount when tenant is selected
   const handleTenantChange = (tenantId: string) => {
-    const selectedTenant = activeTenants.find(t => t.id === tenantId);
+    const selectedTenant = tenants?.find(t => t.id === tenantId);
     setFormData({
       ...formData,
       tenant_id: tenantId,
@@ -75,35 +98,51 @@ const PaymentsPage = () => {
     });
   };
 
+  // Add payment mutation
+  const addPayment = useMutation({
+    mutationFn: async (newPayment: typeof formData) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      const { error } = await supabase.from("payments").insert({
+        tenant_id: newPayment.tenant_id,
+        amount: parseFloat(newPayment.amount),
+        payment_date: format(newPayment.payment_date, "yyyy-MM-dd"),
+        payment_method: newPayment.payment_method,
+        status: newPayment.status,
+        notes: newPayment.notes || null,
+        created_by: user?.id,
+      });
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["payments"] });
+      toast({
+        title: "Payment recorded",
+        description: "Payment has been successfully recorded",
+      });
+      setIsDialogOpen(false);
+      setFormData({
+        tenant_id: "",
+        amount: "",
+        payment_date: new Date(),
+        payment_method: "cash",
+        status: "completed",
+        notes: "",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to record payment: " + error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
-    const newPayment = addPayment({
-      tenant_id: formData.tenant_id,
-      amount: parseFloat(formData.amount),
-      payment_date: format(formData.payment_date, "yyyy-MM-dd"),
-      payment_method: formData.payment_method,
-      status: formData.status,
-      notes: formData.notes || null,
-      created_by: 'admin-1',
-    });
-
-    setPayments([newPayment, ...payments]);
-    
-    toast({
-      title: "Payment recorded",
-      description: "Payment has been successfully recorded",
-    });
-    
-    setIsDialogOpen(false);
-    setFormData({
-      tenant_id: "",
-      amount: "",
-      payment_date: new Date(),
-      payment_method: "cash",
-      status: "completed",
-      notes: "",
-    });
+    addPayment.mutate(formData);
   };
 
   const getStatusBadge = (status: string) => {
@@ -113,14 +152,6 @@ const PaymentsPage = () => {
       failed: "destructive",
     };
     return <Badge variant={variants[status] || "secondary"}>{status}</Badge>;
-  };
-
-  const getTenantName = (tenantId: string) => {
-    return mockTenants.find(t => t.id === tenantId)?.business_name || "Unknown";
-  };
-
-  const getTenantContact = (tenantId: string) => {
-    return mockTenants.find(t => t.id === tenantId)?.contact_person || "";
   };
 
   return (
@@ -153,7 +184,7 @@ const PaymentsPage = () => {
                       <SelectValue placeholder="Select tenant" />
                     </SelectTrigger>
                     <SelectContent>
-                      {activeTenants.map((tenant) => (
+                      {tenants?.map((tenant) => (
                         <SelectItem key={tenant.id} value={tenant.id}>
                           {tenant.business_name}
                         </SelectItem>
@@ -231,7 +262,7 @@ const PaymentsPage = () => {
                   <Select
                     value={formData.status}
                     onValueChange={(value) =>
-                      setFormData({ ...formData, status: value as 'completed' | 'pending' | 'failed' })
+                      setFormData({ ...formData, status: value })
                     }
                   >
                     <SelectTrigger>
@@ -266,7 +297,11 @@ const PaymentsPage = () => {
         </div>
 
         <div className="bg-card rounded-lg border border-border">
-          {payments.length > 0 ? (
+          {isLoading ? (
+            <div className="p-8 text-center text-muted-foreground">
+              Loading payments...
+            </div>
+          ) : payments && payments.length > 0 ? (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -279,7 +314,7 @@ const PaymentsPage = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {payments.map((payment) => (
+                {payments.map((payment: any) => (
                   <TableRow key={payment.id}>
                     <TableCell>
                       {format(new Date(payment.payment_date), "MMM dd, yyyy")}
@@ -287,17 +322,17 @@ const PaymentsPage = () => {
                     <TableCell>
                       <div>
                         <div className="font-medium">
-                          {getTenantName(payment.tenant_id)}
+                          {payment.tenants?.business_name}
                         </div>
                         <div className="text-sm text-muted-foreground">
-                          {getTenantContact(payment.tenant_id)}
+                          {payment.tenants?.contact_person}
                         </div>
                       </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center font-medium">
                         <span className="mr-1">₱</span>
-                        {payment.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        {parseFloat(payment.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </div>
                     </TableCell>
                     <TableCell className="capitalize">

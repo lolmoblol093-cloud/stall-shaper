@@ -1,9 +1,10 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -32,6 +33,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import {
@@ -48,36 +50,88 @@ import {
   Inbox,
   RefreshCw,
 } from "lucide-react";
-import { 
-  mockInquiries, 
-  updateInquiryStatus, 
-  deleteInquiry,
-  Inquiry 
-} from "@/data/mockData";
+
+interface Inquiry {
+  id: string;
+  stall_id: string | null;
+  stall_code: string;
+  name: string;
+  email: string;
+  phone: string | null;
+  message: string | null;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
 
 const InquiriesPage = () => {
-  const [inquiries, setInquiries] = useState<Inquiry[]>(mockInquiries);
+  const [inquiries, setInquiries] = useState<Inquiry[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedInquiry, setSelectedInquiry] = useState<Inquiry | null>(null);
 
-  const handleRefresh = () => {
-    setInquiries([...mockInquiries]);
-    toast.success("Inquiries refreshed");
+  useEffect(() => {
+    fetchInquiries();
+
+    const channel = supabase
+      .channel("inquiries-changes")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "inquiries" },
+        () => fetchInquiries()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  const fetchInquiries = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("inquiries")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      setInquiries(data || []);
+    } catch (error) {
+      console.error("Error fetching inquiries:", error);
+      toast.error("Failed to load inquiries");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleUpdateStatus = (id: string, status: Inquiry['status']) => {
-    updateInquiryStatus(id, status);
-    setInquiries(inquiries.map(inq => 
-      inq.id === id ? { ...inq, status } : inq
-    ));
-    toast.success(`Inquiry marked as ${status}`);
+  const updateStatus = async (id: string, status: string) => {
+    try {
+      const { error } = await supabase
+        .from("inquiries")
+        .update({ status })
+        .eq("id", id);
+
+      if (error) throw error;
+      toast.success(`Inquiry marked as ${status}`);
+      fetchInquiries();
+    } catch (error) {
+      console.error("Error updating inquiry:", error);
+      toast.error("Failed to update inquiry");
+    }
   };
 
-  const handleDeleteInquiry = (id: string) => {
-    deleteInquiry(id);
-    setInquiries(inquiries.filter(inq => inq.id !== id));
-    toast.success("Inquiry deleted");
+  const deleteInquiry = async (id: string) => {
+    try {
+      const { error } = await supabase.from("inquiries").delete().eq("id", id);
+
+      if (error) throw error;
+      toast.success("Inquiry deleted");
+      fetchInquiries();
+    } catch (error) {
+      console.error("Error deleting inquiry:", error);
+      toast.error("Failed to delete inquiry");
+    }
   };
 
   const filteredInquiries = inquiries.filter((inquiry) => {
@@ -138,6 +192,7 @@ const InquiriesPage = () => {
   return (
     <DashboardLayout>
       <div className="space-y-6">
+        {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-foreground">Stall Inquiries</h1>
@@ -145,12 +200,13 @@ const InquiriesPage = () => {
               Manage inquiries from potential tenants
             </p>
           </div>
-          <Button variant="outline" onClick={handleRefresh}>
+          <Button variant="outline" onClick={fetchInquiries}>
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
           </Button>
         </div>
 
+        {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <Card>
             <CardContent className="p-4">
@@ -206,6 +262,7 @@ const InquiriesPage = () => {
           </Card>
         </div>
 
+        {/* Filters */}
         <Card>
           <CardContent className="p-4">
             <div className="flex flex-col sm:flex-row gap-4">
@@ -234,12 +291,19 @@ const InquiriesPage = () => {
           </CardContent>
         </Card>
 
+        {/* Table */}
         <Card>
           <CardHeader>
             <CardTitle>Inquiries ({filteredInquiries.length})</CardTitle>
           </CardHeader>
           <CardContent>
-            {filteredInquiries.length === 0 ? (
+            {loading ? (
+              <div className="space-y-4">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <Skeleton key={i} className="h-16 w-full" />
+                ))}
+              </div>
+            ) : filteredInquiries.length === 0 ? (
               <div className="text-center py-12">
                 <Inbox className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                 <h3 className="text-lg font-semibold mb-2">No inquiries found</h3>
@@ -286,20 +350,20 @@ const InquiriesPage = () => {
                                 <Eye className="h-4 w-4 mr-2" />
                                 View Details
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleUpdateStatus(inquiry.id, "contacted")}>
+                              <DropdownMenuItem onClick={() => updateStatus(inquiry.id, "contacted")}>
                                 <Mail className="h-4 w-4 mr-2" />
                                 Mark Contacted
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleUpdateStatus(inquiry.id, "resolved")}>
+                              <DropdownMenuItem onClick={() => updateStatus(inquiry.id, "resolved")}>
                                 <CheckCircle className="h-4 w-4 mr-2" />
                                 Mark Resolved
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleUpdateStatus(inquiry.id, "rejected")}>
+                              <DropdownMenuItem onClick={() => updateStatus(inquiry.id, "rejected")}>
                                 <XCircle className="h-4 w-4 mr-2" />
                                 Mark Rejected
                               </DropdownMenuItem>
                               <DropdownMenuItem
-                                onClick={() => handleDeleteInquiry(inquiry.id)}
+                                onClick={() => deleteInquiry(inquiry.id)}
                                 className="text-destructive"
                               >
                                 <XCircle className="h-4 w-4 mr-2" />
@@ -317,6 +381,7 @@ const InquiriesPage = () => {
           </CardContent>
         </Card>
 
+        {/* Detail Dialog */}
         <Dialog open={!!selectedInquiry} onOpenChange={() => setSelectedInquiry(null)}>
           <DialogContent>
             <DialogHeader>
@@ -372,14 +437,14 @@ const InquiriesPage = () => {
                   <Button
                     variant="outline"
                     className="flex-1"
-                    onClick={() => handleUpdateStatus(selectedInquiry.id, "contacted")}
+                    onClick={() => updateStatus(selectedInquiry.id, "contacted")}
                   >
                     <Mail className="h-4 w-4 mr-2" />
                     Mark Contacted
                   </Button>
                   <Button
                     className="flex-1"
-                    onClick={() => handleUpdateStatus(selectedInquiry.id, "resolved")}
+                    onClick={() => updateStatus(selectedInquiry.id, "resolved")}
                   >
                     <CheckCircle className="h-4 w-4 mr-2" />
                     Mark Resolved

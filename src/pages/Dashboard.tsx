@@ -1,15 +1,11 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, Home, MapPin, TrendingUp } from "lucide-react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { DirectoryMap } from "@/components/DirectoryMap";
+import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
-import { 
-  mockStalls, 
-  mockTenants, 
-  mockPayments 
-} from "@/data/mockData";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -26,46 +22,79 @@ const Dashboard = () => {
 
   useEffect(() => {
     fetchDashboardData();
+    
+    const stallsChannel = supabase
+      .channel('dashboard-stalls')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'stalls' }, fetchDashboardData)
+      .subscribe();
+
+    const tenantsChannel = supabase
+      .channel('dashboard-tenants')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tenants' }, fetchDashboardData)
+      .subscribe();
+
+    const paymentsChannel = supabase
+      .channel('dashboard-payments')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'payments' }, fetchDashboardData)
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(stallsChannel);
+      supabase.removeChannel(tenantsChannel);
+      supabase.removeChannel(paymentsChannel);
+    };
   }, []);
 
-  const fetchDashboardData = () => {
-    const tenants = mockTenants;
-    const stalls = mockStalls;
-    const payments = mockPayments;
+  const fetchDashboardData = async () => {
+    try {
+      const [tenantsResult, stallsResult, paymentsResult] = await Promise.all([
+        supabase.from("tenants").select("*"),
+        supabase.from("stalls").select("*"),
+        supabase.from("payments").select("*, tenants(business_name)").order("created_at", { ascending: false }).limit(3)
+      ]);
 
-    const activeTenants = tenants.filter(t => t.status === "active").length;
-    const occupiedStalls = stalls.filter(s => s.occupancy_status === "occupied").length;
-    const vacantStalls = stalls.filter(s => s.occupancy_status === "vacant").length;
+      if (tenantsResult.error) throw tenantsResult.error;
+      if (stallsResult.error) throw stallsResult.error;
+      if (paymentsResult.error) throw paymentsResult.error;
 
-    const currentMonth = new Date().getMonth();
-    const currentYear = new Date().getFullYear();
-    const monthlyPayments = payments.filter(p => {
-      const paymentDate = new Date(p.payment_date);
-      return paymentDate.getMonth() === currentMonth && paymentDate.getFullYear() === currentYear;
-    });
-    const monthlyRevenue = monthlyPayments.reduce((sum, p) => sum + Number(p.amount), 0);
+      const tenants = tenantsResult.data || [];
+      const stalls = stallsResult.data || [];
+      const payments = paymentsResult.data || [];
 
-    setStats({
-      totalTenants: tenants.length,
-      activeTenants,
-      occupiedStalls,
-      totalStalls: stalls.length,
-      availableStalls: vacantStalls,
-      monthlyRevenue
-    });
+      const activeTenants = tenants.filter(t => t.status === "active").length;
+      const occupiedStalls = stalls.filter(s => s.occupancy_status === "occupied").length;
+      const vacantStalls = stalls.filter(s => s.occupancy_status === "vacant").length;
 
-    const recentActivities = payments.slice(0, 3).map(payment => {
-      const tenant = tenants.find(t => t.id === payment.tenant_id);
-      return {
+      const currentMonth = new Date().getMonth();
+      const currentYear = new Date().getFullYear();
+      const monthlyPayments = payments.filter(p => {
+        const paymentDate = new Date(p.payment_date);
+        return paymentDate.getMonth() === currentMonth && paymentDate.getFullYear() === currentYear;
+      });
+      const monthlyRevenue = monthlyPayments.reduce((sum, p) => sum + Number(p.amount), 0);
+
+      setStats({
+        totalTenants: tenants.length,
+        activeTenants,
+        occupiedStalls,
+        totalStalls: stalls.length,
+        availableStalls: vacantStalls,
+        monthlyRevenue
+      });
+
+      const recentActivities = payments.slice(0, 3).map(payment => ({
         type: "payment",
-        message: `Payment received from ${tenant?.business_name || "Unknown"}`,
+        message: `Payment received from ${payment.tenants?.business_name || "Unknown"}`,
         time: new Date(payment.created_at).toLocaleString(),
         status: payment.status
-      };
-    });
+      }));
 
-    setRecentActivity(recentActivities);
-    setLoading(false);
+      setRecentActivity(recentActivities);
+      setLoading(false);
+    } catch (error: any) {
+      console.error("Error fetching dashboard data:", error);
+      setLoading(false);
+    }
   };
 
   const statsData = [
@@ -172,8 +201,8 @@ const Dashboard = () => {
                 recentActivity.map((activity, index) => (
                   <div key={index} className="flex items-center space-x-3">
                     <div className={`w-2 h-2 rounded-full ${
-                      activity.status === "completed" ? "bg-green-500" : 
-                      activity.status === "pending" ? "bg-yellow-500" : "bg-primary"
+                      activity.status === "completed" ? "bg-success" : 
+                      activity.status === "pending" ? "bg-warning" : "bg-primary"
                     }`}></div>
                     <div className="flex-1">
                       <p className="text-sm font-medium">{activity.message}</p>

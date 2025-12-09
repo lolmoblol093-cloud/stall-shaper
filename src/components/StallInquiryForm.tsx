@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -15,7 +16,6 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Send, Loader2 } from "lucide-react";
-import { addInquiry } from "@/data/mockData";
 
 const inquirySchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(100, "Name must be less than 100 characters"),
@@ -54,10 +54,7 @@ export function StallInquiryForm({ isOpen, onClose, stallId, stallCode }: StallI
   const onSubmit = async (data: InquiryFormData) => {
     setIsSubmitting(true);
     try {
-      // Simulate network delay
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      addInquiry({
+      const { error } = await supabase.from("inquiries").insert({
         stall_id: stallId,
         stall_code: stallCode,
         name: data.name,
@@ -65,6 +62,8 @@ export function StallInquiryForm({ isOpen, onClose, stallId, stallCode }: StallI
         phone: data.phone || null,
         message: data.message || null,
       });
+
+      if (error) throw error;
 
       toast.success("Inquiry submitted successfully! We'll get back to you soon.");
       reset();
