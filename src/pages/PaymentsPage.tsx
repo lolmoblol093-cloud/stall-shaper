@@ -48,12 +48,19 @@ const PaymentsPage = () => {
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [payments, setPayments] = useState<Payment[]>(mockPayments);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    tenant_id: string;
+    amount: string;
+    payment_date: Date;
+    payment_method: string;
+    status: 'completed' | 'pending' | 'failed';
+    notes: string;
+  }>({
     tenant_id: "",
     amount: "",
     payment_date: new Date(),
     payment_method: "cash",
-    status: "completed" as const,
+    status: "completed",
     notes: "",
   });
 
