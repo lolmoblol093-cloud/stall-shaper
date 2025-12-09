@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -22,94 +22,25 @@ import {
 import { Label } from "@/components/ui/label";
 import { Home, Search, Edit, ImageIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
 import { StallSelectionMap } from "@/components/StallSelectionMap";
-
-interface Stall {
-  id: string;
-  stall_code: string;
-  floor: string;
-  monthly_rent: number;
-  electricity_reader: string | null;
-  floor_size: string | null;
-  occupancy_status: string;
-  image_url: string | null;
-}
-
-interface Tenant {
-  stall_number: string | null;
-  business_name: string;
-}
+import { 
+  mockStalls, 
+  mockTenants, 
+  updateStall,
+  Stall 
+} from "@/data/mockData";
 
 const StallsPage = () => {
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedStall, setSelectedStall] = useState<Stall | null>(null);
-  const [stalls, setStalls] = useState<Stall[]>([]);
-  const [tenants, setTenants] = useState<Tenant[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [stalls, setStalls] = useState<Stall[]>(mockStalls);
   const [selectedStallFromMap, setSelectedStallFromMap] = useState<string | null>(null);
-  const [mapRefreshTrigger, setMapRefreshTrigger] = useState(0);
-
-  useEffect(() => {
-    fetchStalls();
-    fetchTenants();
-    
-    // Set up real-time subscriptions
-    const stallsChannel = supabase
-      .channel('stalls-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'stalls' }, () => {
-        fetchStalls();
-        setMapRefreshTrigger(prev => prev + 1);
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tenants' }, () => {
-        fetchTenants();
-        setMapRefreshTrigger(prev => prev + 1);
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(stallsChannel);
-    };
-  }, []);
-
-  const fetchStalls = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("stalls")
-        .select("*")
-        .order("stall_code");
-
-      if (error) throw error;
-      setStalls(data || []);
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchTenants = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("tenants")
-        .select("stall_number, business_name")
-        .eq("status", "active");
-
-      if (error) throw error;
-      setTenants(data || []);
-    } catch (error: any) {
-      console.error("Error fetching tenants:", error);
-    }
-  };
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const getTenantName = (stallCode: string): string | undefined => {
-    const tenant = tenants.find(t => t.stall_number === stallCode);
+    const tenant = mockTenants.find(t => t.stall_number === stallCode && t.status === 'active');
     return tenant?.business_name;
   };
 
@@ -132,46 +63,25 @@ const StallsPage = () => {
     }
   };
 
-  const handleUpdateStall = async () => {
+  const handleUpdateStall = () => {
     if (!selectedStall) return;
 
-    try {
-      const { error } = await supabase
-        .from("stalls")
-        .update({
-          monthly_rent: selectedStall.monthly_rent,
-          floor_size: selectedStall.floor_size,
-        })
-        .eq("id", selectedStall.id);
+    updateStall(selectedStall.id, {
+      monthly_rent: selectedStall.monthly_rent,
+      floor_size: selectedStall.floor_size,
+    });
 
-      if (error) throw error;
-
-      toast({
-        title: "Stall Updated",
-        description: "Stall information has been successfully updated",
-      });
-      
-      setIsEditDialogOpen(false);
-      setSelectedStall(null);
-      fetchStalls();
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    }
+    setStalls(mockStalls);
+    
+    toast({
+      title: "Stall Updated",
+      description: "Stall information has been successfully updated",
+    });
+    
+    setIsEditDialogOpen(false);
+    setSelectedStall(null);
+    setRefreshKey(prev => prev + 1);
   };
-
-  if (loading) {
-    return (
-      <DashboardLayout>
-        <div className="flex items-center justify-center h-64">
-          <p className="text-muted-foreground">Loading stalls...</p>
-        </div>
-      </DashboardLayout>
-    );
-  }
 
   const occupiedStalls = stalls.filter(s => s.occupancy_status === "occupied").length;
   const vacantStalls = stalls.filter(s => s.occupancy_status === "vacant").length;
@@ -203,7 +113,7 @@ const StallsPage = () => {
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center space-x-2">
-                <div className="w-5 h-5 bg-status-occupied rounded"></div>
+                <div className="w-5 h-5 bg-red-500 rounded"></div>
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Occupied</p>
                   <p className="text-2xl font-bold">{occupiedStalls}</p>
@@ -214,7 +124,7 @@ const StallsPage = () => {
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center space-x-2">
-                <div className="w-5 h-5 bg-status-vacant rounded"></div>
+                <div className="w-5 h-5 bg-green-500 rounded"></div>
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Available</p>
                   <p className="text-2xl font-bold">{vacantStalls}</p>
@@ -268,7 +178,7 @@ const StallsPage = () => {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredStalls.map((stall) => (
+                  filteredStalls.slice(0, 20).map((stall) => (
                     <TableRow key={stall.id}>
                       <TableCell className="font-medium">
                         <div className="flex items-center space-x-2">
@@ -285,8 +195,8 @@ const StallsPage = () => {
                         <Badge
                           variant="default"
                           className={stall.occupancy_status === "occupied" 
-                            ? "bg-status-occupied text-white" 
-                            : "bg-status-vacant text-white"
+                            ? "bg-red-500 text-white" 
+                            : "bg-green-500 text-white"
                           }
                         >
                           {stall.occupancy_status}
@@ -327,7 +237,7 @@ const StallsPage = () => {
             <StallSelectionMap
               onStallSelect={handleStallSelectFromMap}
               selectedStallCode={selectedStallFromMap}
-              refreshTrigger={mapRefreshTrigger}
+              refreshTrigger={refreshKey}
             />
           </CardContent>
         </Card>

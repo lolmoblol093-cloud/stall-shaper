@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -7,73 +7,35 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 import { useNavigate } from "react-router-dom";
-
-interface Notification {
-  id: string;
-  title: string;
-  message: string;
-  type: string;
-  is_read: boolean;
-  reference_id: string | null;
-  reference_type: string | null;
-  created_at: string;
-}
+import { 
+  mockNotifications, 
+  markNotificationAsRead, 
+  markAllNotificationsAsRead,
+  Notification 
+} from "@/data/mockData";
 
 export const NotificationBell = () => {
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
+  const [notifications, setNotifications] = useState<Notification[]>(mockNotifications);
   const [isOpen, setIsOpen] = useState(false);
-  const { toast } = useToast();
   const navigate = useNavigate();
 
-  const fetchNotifications = async () => {
-    const { data, error } = await supabase
-      .from("notifications")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(20);
+  const unreadCount = notifications.filter(n => !n.is_read).length;
 
-    if (error) {
-      console.error("Error fetching notifications:", error);
-      return;
-    }
-
-    setNotifications(data || []);
-    setUnreadCount(data?.filter((n) => !n.is_read).length || 0);
+  const handleMarkAsRead = (id: string) => {
+    markNotificationAsRead(id);
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
   };
 
-  const markAsRead = async (id: string) => {
-    await supabase
-      .from("notifications")
-      .update({ is_read: true })
-      .eq("id", id);
-    
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
-    );
-    setUnreadCount((prev) => Math.max(0, prev - 1));
-  };
-
-  const markAllAsRead = async () => {
-    const unreadIds = notifications.filter((n) => !n.is_read).map((n) => n.id);
-    if (unreadIds.length === 0) return;
-
-    await supabase
-      .from("notifications")
-      .update({ is_read: true })
-      .in("id", unreadIds);
-
-    setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
-    setUnreadCount(0);
+  const handleMarkAllAsRead = () => {
+    markAllNotificationsAsRead();
+    setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
   };
 
   const handleNotificationClick = (notification: Notification) => {
     if (!notification.is_read) {
-      markAsRead(notification.id);
+      handleMarkAsRead(notification.id);
     }
     
     if (notification.reference_type === "inquiry") {
@@ -81,38 +43,6 @@ export const NotificationBell = () => {
       setIsOpen(false);
     }
   };
-
-  useEffect(() => {
-    fetchNotifications();
-
-    // Set up real-time subscription
-    const channel = supabase
-      .channel("notifications-changes")
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "notifications",
-        },
-        (payload) => {
-          const newNotification = payload.new as Notification;
-          setNotifications((prev) => [newNotification, ...prev.slice(0, 19)]);
-          setUnreadCount((prev) => prev + 1);
-
-          // Show toast for new notification
-          toast({
-            title: newNotification.title,
-            description: newNotification.message,
-          });
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [toast]);
 
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
@@ -134,7 +64,7 @@ export const NotificationBell = () => {
               variant="ghost"
               size="sm"
               className="text-xs"
-              onClick={markAllAsRead}
+              onClick={handleMarkAllAsRead}
             >
               Mark all as read
             </Button>
