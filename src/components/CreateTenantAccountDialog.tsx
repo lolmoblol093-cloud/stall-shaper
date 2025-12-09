@@ -10,7 +10,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
 import { UserPlus, Copy, Check, Key, Mail } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
@@ -66,30 +65,11 @@ export const CreateTenantAccountDialog = ({
     setLoading(true);
     const tempPassword = generatePassword();
 
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 500));
+
     try {
-      // Create auth user using admin API via edge function
-      const { data, error } = await supabase.functions.invoke("create-tenant-account", {
-        body: {
-          email,
-          password: tempPassword,
-          tenant_id: tenant.id,
-        },
-      });
-
-      if (error) throw error;
-
-      if (data?.error) {
-        throw new Error(data.error);
-      }
-
-      // Update tenant email if it was changed
-      if (customEmail && customEmail !== tenant.email) {
-        await supabase
-          .from("tenants")
-          .update({ email: customEmail })
-          .eq("id", tenant.id);
-      }
-
+      // Mock account creation - in UI-only mode, we just simulate success
       setCredentials({ email, password: tempPassword });
       setAccountCreated(true);
       onAccountCreated();
