@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
 import { KeyRound, Copy, Check, Eye, EyeOff } from "lucide-react";
 
 interface Tenant {
@@ -78,17 +77,8 @@ export const ResetTenantPasswordDialog: React.FC<ResetTenantPasswordDialogProps>
 
     setLoading(true);
 
-    try {
-      const { data, error } = await supabase.functions.invoke("create-tenant-account", {
-        body: {
-          email: tenant.email,
-          password: password,
-          tenant_id: tenant.id,
-        },
-      });
-
-      if (error) throw error;
-
+    // Simulate password reset (UI-only mode)
+    setTimeout(() => {
       toast({
         title: "Password Reset",
         description: `New password set for ${tenant.business_name}. Share it with the tenant.`,
@@ -97,15 +87,8 @@ export const ResetTenantPasswordDialog: React.FC<ResetTenantPasswordDialogProps>
       onOpenChange(false);
       setPassword("");
       setShowPassword(false);
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
       setLoading(false);
-    }
+    }, 500);
   };
 
   const handleClose = () => {
