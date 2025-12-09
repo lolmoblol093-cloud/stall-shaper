@@ -12,12 +12,10 @@ import {
   DollarSign,
   Calendar
 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
 import { format, subMonths, startOfMonth, endOfMonth } from "date-fns";
-import stallService from "@/services/stallService";
-import tenantService from "@/services/tenantService";
-import paymentService from "@/services/paymentService";
 
 interface FloorOccupancy {
   floor: string;
@@ -36,8 +34,8 @@ interface Payment {
   id: string;
   amount: number;
   payment_date: string;
-  status?: string | null;
-  payment_method?: string | null;
+  status: string | null;
+  payment_method: string | null;
   tenant_id: string;
   tenant_name?: string;
 }
@@ -65,7 +63,11 @@ const ReportsPage = () => {
   const fetchReportData = async () => {
     try {
       // Fetch tenants data
-      const tenantsData = await tenantService.getAll();
+      const { data: tenantsData, error: tenantsError } = await supabase
+        .from("tenants")
+        .select("*");
+      
+      if (tenantsError) throw tenantsError;
       
       setTenants(tenantsData || []);
       setTenantCount(tenantsData?.length || 0);
@@ -81,7 +83,11 @@ const ReportsPage = () => {
       setTotalRevenue(revenue);
 
       // Fetch stalls data
-      const stalls = await stallService.getAll();
+      const { data: stalls, error: stallsError } = await supabase
+        .from("stalls")
+        .select("*");
+      
+      if (stallsError) throw stallsError;
       
       setStallsCount(stalls?.length || 0);
       setOccupiedStallsCount(stalls?.filter(s => s.occupancy_status === "occupied").length || 0);
@@ -124,7 +130,12 @@ const ReportsPage = () => {
       setFloorOccupancy(floorOccupancyArray);
 
       // Fetch payments data
-      const paymentsData = await paymentService.getAll();
+      const { data: paymentsData, error: paymentsError } = await supabase
+        .from("payments")
+        .select("*")
+        .order("payment_date", { ascending: false });
+      
+      if (paymentsError) throw paymentsError;
 
       // Map tenant names to payments
       const paymentsWithNames = paymentsData?.map(payment => ({
@@ -478,14 +489,7 @@ const ReportsPage = () => {
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
                     </Pie>
-                    <Tooltip 
-                      formatter={(value: number) => [value, ""]}
-                      contentStyle={{ 
-                        backgroundColor: 'hsl(var(--background))',
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: '8px'
-                      }}
-                    />
+                    <Tooltip />
                     <Legend />
                   </PieChart>
                 </ResponsiveContainer>
@@ -496,37 +500,28 @@ const ReportsPage = () => {
 
         <Card>
           <CardHeader>
-            <CardTitle>Revenue Trends</CardTitle>
-            <CardDescription>Monthly payment revenue over the last 6 months</CardDescription>
+            <CardTitle>Revenue Trends (Last 6 Months)</CardTitle>
+            <CardDescription>Monthly payment revenue from completed payments</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={monthlyRevenue}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis 
-                    dataKey="month" 
-                    tick={{ fill: 'hsl(var(--muted-foreground))' }}
-                    axisLine={{ stroke: 'hsl(var(--border))' }}
-                  />
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                  <XAxis dataKey="month" className="text-xs" />
                   <YAxis 
-                    tick={{ fill: 'hsl(var(--muted-foreground))' }}
-                    axisLine={{ stroke: 'hsl(var(--border))' }}
                     tickFormatter={(value) => `₱${value.toLocaleString()}`}
+                    className="text-xs"
                   />
                   <Tooltip 
                     formatter={(value: number) => [`₱${value.toLocaleString()}`, "Revenue"]}
                     contentStyle={{ 
-                      backgroundColor: 'hsl(var(--background))',
+                      backgroundColor: 'hsl(var(--card))', 
                       border: '1px solid hsl(var(--border))',
                       borderRadius: '8px'
                     }}
                   />
-                  <Bar 
-                    dataKey="revenue" 
-                    fill="hsl(var(--primary))" 
-                    radius={[4, 4, 0, 0]}
-                  />
+                  <Bar dataKey="revenue" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -542,28 +537,37 @@ const ReportsPage = () => {
             <CardDescription>Latest payment transactions</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {payments.length === 0 ? (
-                <p className="text-muted-foreground text-center py-4">No payment records found</p>
-              ) : (
-                payments.slice(0, 10).map((payment) => (
-                  <div key={payment.id} className="flex items-center justify-between border-b border-border pb-3 last:border-0">
+            {payments.length === 0 ? (
+              <p className="text-muted-foreground text-center py-8">No payment records found</p>
+            ) : (
+              <div className="space-y-3">
+                {payments.slice(0, 10).map((payment) => (
+                  <div 
+                    key={payment.id} 
+                    className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
+                  >
                     <div>
                       <p className="font-medium">{payment.tenant_name}</p>
                       <p className="text-sm text-muted-foreground">
-                        {format(new Date(payment.payment_date), "MMM dd, yyyy")}
+                        {format(new Date(payment.payment_date), "MMM dd, yyyy")} • {payment.payment_method || "N/A"}
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="font-semibold">₱{payment.amount.toLocaleString()}</p>
-                      <p className="text-sm text-muted-foreground capitalize">
-                        {payment.status} • {payment.payment_method || "N/A"}
-                      </p>
+                      <p className="font-bold text-foreground">₱{Number(payment.amount).toLocaleString()}</p>
+                      <span className={`text-xs px-2 py-1 rounded-full ${
+                        payment.status === "completed" 
+                          ? "bg-green-500/20 text-green-600" 
+                          : payment.status === "pending"
+                          ? "bg-yellow-500/20 text-yellow-600"
+                          : "bg-muted text-muted-foreground"
+                      }`}>
+                        {payment.status || "unknown"}
+                      </span>
                     </div>
                   </div>
-                ))
-              )}
-            </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

@@ -1,70 +1,148 @@
 import React, { useState } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Building2, User } from "lucide-react";
+import { Settings, Building2, User } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
-import { useAuth } from "@/contexts/AuthContext";
-import appSettingsService from "@/services/appSettingsService";
 
 const SettingsPage = () => {
   const { toast } = useToast();
-  const { user } = useAuth();
+  const queryClient = useQueryClient();
   
-  const [profileData, setProfileData] = useState({
-    full_name: user?.email?.split('@')[0] || "Admin",
-    email: user?.email || "",
+  // Fetch user profile
+  const { data: profile } = useQuery({
+    queryKey: ["profile"],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+      
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      
+      if (error) throw error;
+      return data;
+    },
   });
 
-  const [propertyName, setPropertyName] = useState("Marketplace Directory");
-  const [loading, setLoading] = useState(false);
+  const [profileData, setProfileData] = useState({
+    full_name: "",
+    email: "",
+  });
 
-  // Load settings on mount
   React.useEffect(() => {
-    const loadSettings = async () => {
-      const name = await appSettingsService.getPropertyName();
-      setPropertyName(name);
-    };
-    loadSettings();
-  }, []);
+    if (profile) {
+      setProfileData({
+        full_name: profile.full_name || "",
+        email: profile.email || "",
+      });
+    }
+  }, [profile]);
 
-  const handleProfileSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 300));
-    
-    toast({
-      title: "Profile updated",
-      description: "Your profile has been successfully updated",
-    });
-    setLoading(false);
-  };
+  // Fetch app settings
+  const { data: appSettings } = useQuery({
+    queryKey: ["app_settings"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("app_settings")
+        .select("*")
+        .order("key");
+      
+      if (error) throw error;
+      return data;
+    },
+  });
 
-  const handleAppSettingsSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    
-    try {
-      await appSettingsService.setPropertyName(propertyName);
+  const [propertyName, setPropertyName] = useState("");
+
+  React.useEffect(() => {
+    const setting = appSettings?.find((s) => s.key === "property_name");
+    if (setting && setting.value && typeof setting.value === 'object' && 'name' in setting.value) {
+      setPropertyName((setting.value as any).name || "");
+    }
+  }, [appSettings]);
+
+  // Update profile mutation
+  const updateProfile = useMutation({
+    mutationFn: async (data: typeof profileData) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const { error } = await supabase
+        .from("profiles")
+        .upsert({
+          user_id: user.id,
+          full_name: data.full_name,
+          email: data.email,
+        });
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["profile"] });
+      toast({
+        title: "Profile updated",
+        description: "Your profile has been successfully updated",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to update profile: " + error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Update app settings mutation
+  const updateAppSettings = useMutation({
+    mutationFn: async (name: string) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const { error } = await supabase
+        .from("app_settings")
+        .upsert({
+          key: "property_name",
+          value: { name },
+          description: "Property management system name",
+          updated_by: user.id,
+        });
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["app_settings"] });
       toast({
         title: "Settings updated",
         description: "Application settings have been successfully updated",
       });
-    } catch (error: any) {
+    },
+    onError: (error) => {
       toast({
         title: "Error",
         description: "Failed to update settings: " + error.message,
         variant: "destructive",
       });
-    } finally {
-      setLoading(false);
-    }
+    },
+  });
+
+  const handleProfileSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    updateProfile.mutate(profileData);
+  };
+
+  const handleAppSettingsSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    updateAppSettings.mutate(propertyName);
   };
 
   return (
@@ -124,9 +202,7 @@ const SettingsPage = () => {
 
                   <Separator />
 
-                  <Button type="submit" disabled={loading}>
-                    {loading ? "Saving..." : "Save Profile"}
-                  </Button>
+                  <Button type="submit">Save Profile</Button>
                 </form>
               </CardContent>
             </Card>
@@ -157,9 +233,7 @@ const SettingsPage = () => {
 
                   <Separator />
 
-                  <Button type="submit" disabled={loading}>
-                    {loading ? "Saving..." : "Save Settings"}
-                  </Button>
+                  <Button type="submit">Save Settings</Button>
                 </form>
               </CardContent>
             </Card>
@@ -176,10 +250,6 @@ const SettingsPage = () => {
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Version:</span>
                     <span className="font-medium">1.0.0</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Mode:</span>
-                    <span className="font-medium">UI Demo</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Status:</span>

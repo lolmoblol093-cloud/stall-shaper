@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -38,8 +39,6 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import paymentService from "@/services/paymentService";
-import tenantService from "@/services/tenantService";
 
 const PaymentsPage = () => {
   const { toast } = useToast();
@@ -50,20 +49,43 @@ const PaymentsPage = () => {
     amount: "",
     payment_date: new Date(),
     payment_method: "cash",
-    status: "completed" as "pending" | "completed" | "failed",
+    status: "completed",
     notes: "",
   });
 
   // Fetch payments
   const { data: payments, isLoading } = useQuery({
     queryKey: ["payments"],
-    queryFn: () => paymentService.getAll(),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("payments")
+        .select(`
+          *,
+          tenants (
+            business_name,
+            contact_person
+          )
+        `)
+        .order("payment_date", { ascending: false });
+      
+      if (error) throw error;
+      return data;
+    },
   });
 
   // Fetch tenants for the dropdown
   const { data: tenants } = useQuery({
     queryKey: ["tenants"],
-    queryFn: () => tenantService.getActive(),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("tenants")
+        .select("id, business_name, monthly_rent")
+        .eq("status", "active")
+        .order("business_name");
+      
+      if (error) throw error;
+      return data;
+    },
   });
 
   // Auto-fill amount when tenant is selected
@@ -79,14 +101,19 @@ const PaymentsPage = () => {
   // Add payment mutation
   const addPayment = useMutation({
     mutationFn: async (newPayment: typeof formData) => {
-      return paymentService.create({
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      const { error } = await supabase.from("payments").insert({
         tenant_id: newPayment.tenant_id,
         amount: parseFloat(newPayment.amount),
         payment_date: format(newPayment.payment_date, "yyyy-MM-dd"),
         payment_method: newPayment.payment_method,
         status: newPayment.status,
-        notes: newPayment.notes || undefined,
+        notes: newPayment.notes || null,
+        created_by: user?.id,
       });
+      
+      if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["payments"] });
@@ -104,7 +131,7 @@ const PaymentsPage = () => {
         notes: "",
       });
     },
-    onError: (error: any) => {
+    onError: (error) => {
       toast({
         title: "Error",
         description: "Failed to record payment: " + error.message,
@@ -125,17 +152,6 @@ const PaymentsPage = () => {
       failed: "destructive",
     };
     return <Badge variant={variants[status] || "secondary"}>{status}</Badge>;
-  };
-
-  // Get tenant name by ID
-  const getTenantName = (tenantId: string) => {
-    const tenant = tenants?.find(t => t.id === tenantId);
-    return tenant?.business_name || "Unknown";
-  };
-
-  const getTenantContact = (tenantId: string) => {
-    const tenant = tenants?.find(t => t.id === tenantId);
-    return tenant?.contact_person || "";
   };
 
   return (
@@ -245,7 +261,7 @@ const PaymentsPage = () => {
                   <Label htmlFor="status">Status</Label>
                   <Select
                     value={formData.status}
-                    onValueChange={(value: "pending" | "completed" | "failed") =>
+                    onValueChange={(value) =>
                       setFormData({ ...formData, status: value })
                     }
                   >
@@ -298,7 +314,7 @@ const PaymentsPage = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {payments.map((payment) => (
+                {payments.map((payment: any) => (
                   <TableRow key={payment.id}>
                     <TableCell>
                       {format(new Date(payment.payment_date), "MMM dd, yyyy")}
@@ -306,21 +322,21 @@ const PaymentsPage = () => {
                     <TableCell>
                       <div>
                         <div className="font-medium">
-                          {getTenantName(payment.tenant_id)}
+                          {payment.tenants?.business_name}
                         </div>
                         <div className="text-sm text-muted-foreground">
-                          {getTenantContact(payment.tenant_id)}
+                          {payment.tenants?.contact_person}
                         </div>
                       </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center font-medium">
                         <span className="mr-1">₱</span>
-                        {parseFloat(String(payment.amount)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        {parseFloat(payment.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </div>
                     </TableCell>
                     <TableCell className="capitalize">
-                      {payment.payment_method?.replace("_", " ") || "-"}
+                      {payment.payment_method.replace("_", " ")}
                     </TableCell>
                     <TableCell>{getStatusBadge(payment.status)}</TableCell>
                     <TableCell className="text-muted-foreground">
