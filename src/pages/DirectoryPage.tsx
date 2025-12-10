@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { MapPin, Search, Building, Users } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { stallsService, tenantsService } from "@/lib/directusService";
 import { DirectoryMap } from "@/components/DirectoryMap";
 import { useToast } from "@/hooks/use-toast";
 
@@ -30,39 +30,18 @@ const DirectoryPage = () => {
   useEffect(() => {
     fetchStallsWithTenants();
     
-    // Set up real-time subscription for stalls and tenants
-    const stallsChannel = supabase
-      .channel('stalls-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'stalls' }, () => {
-        fetchStallsWithTenants();
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tenants' }, () => {
-        fetchStallsWithTenants();
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(stallsChannel);
-    };
+    // Poll for updates every 30 seconds
+    const interval = setInterval(fetchStallsWithTenants, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   const fetchStallsWithTenants = async () => {
     try {
-      // Fetch all stalls
-      const { data: stallsData, error: stallsError } = await supabase
-        .from('stalls')
-        .select('*')
-        .order('stall_code');
-
-      if (stallsError) throw stallsError;
-
-      // Fetch all active tenants
-      const { data: tenantsData, error: tenantsError } = await supabase
-        .from('tenants')
-        .select('*')
-        .eq('status', 'active');
-
-      if (tenantsError) throw tenantsError;
+      // Fetch all stalls and tenants using Directus services
+      const [stallsData, tenantsData] = await Promise.all([
+        stallsService.getAll(),
+        tenantsService.getActive()
+      ]);
 
       // Combine stalls with tenant information
       const combinedData: DirectoryStall[] = (stallsData || []).map(stall => {
@@ -82,7 +61,7 @@ const DirectoryPage = () => {
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.message,
+        description: error.message || "Failed to load directory",
         variant: "destructive",
       });
     } finally {
