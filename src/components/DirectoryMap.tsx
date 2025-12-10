@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './DirectoryMap.css';
-import { supabase } from '@/integrations/supabase/client';
+import { stallsService, tenantsService, Stall } from '@/lib/directusService';
 import {
   Dialog,
   DialogContent,

@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { LogOut, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { authService } from "@/lib/directusService";
 import { NotificationBell } from "@/components/NotificationBell";
 
 export const DashboardHeader = () => {
@@ -12,7 +12,7 @@ export const DashboardHeader = () => {
   const { toast } = useToast();
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    await authService.signOut();
     toast({
       title: "Logged out",
       description: "You have been successfully logged out",
