@@ -24,7 +24,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Search, Edit, Users, Map, Trash2, UserPlus, KeyRound } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { tenantsService, stallsService } from "@/lib/directusService";
 import { StallSelectionMap } from "@/components/StallSelectionMap";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -83,34 +83,11 @@ const TenantsPage = () => {
   useEffect(() => {
     fetchTenants();
     fetchAvailableStalls();
-    
-    // Set up real-time subscriptions
-    const tenantsChannel = supabase
-      .channel('tenants-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tenants' }, () => {
-        fetchTenants();
-        fetchAvailableStalls();
-        setMapRefreshTrigger(prev => prev + 1);
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'stalls' }, () => {
-        fetchAvailableStalls();
-        setMapRefreshTrigger(prev => prev + 1);
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(tenantsChannel);
-    };
   }, []);
 
   const fetchTenants = async () => {
     try {
-      const { data, error } = await supabase
-        .from("tenants")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
+      const data = await tenantsService.getAll();
       setTenants(data || []);
     } catch (error: any) {
       toast({
@@ -125,14 +102,9 @@ const TenantsPage = () => {
 
   const fetchAvailableStalls = async () => {
     try {
-      const { data, error } = await supabase
-        .from("stalls")
-        .select("id, stall_code, floor, occupancy_status")
-        .eq("occupancy_status", "vacant")
-        .order("stall_code");
-
-      if (error) throw error;
-      setAvailableStalls(data || []);
+      const data = await stallsService.getAll();
+      const vacantStalls = data?.filter((s: any) => s.occupancy_status === "vacant") || [];
+      setAvailableStalls(vacantStalls);
     } catch (error: any) {
       console.error("Error fetching stalls:", error);
     }
@@ -146,29 +118,25 @@ const TenantsPage = () => {
 
   const handleAddTenant = async () => {
     try {
-      const { data, error } = await supabase
-        .from("tenants")
-        .insert([{
-          business_name: newTenant.business_name,
-          contact_person: newTenant.contact_person,
-          email: newTenant.email || null,
-          phone: newTenant.phone || null,
-          stall_number: newTenant.stall_number || null,
-          status: "active",
-          monthly_rent: newTenant.monthly_rent ? parseFloat(newTenant.monthly_rent) : null,
-          lease_start_date: newTenant.lease_start_date || null,
-          lease_end_date: newTenant.lease_end_date || null,
-        }])
-        .select();
-
-      if (error) throw error;
+      await tenantsService.create({
+        business_name: newTenant.business_name,
+        contact_person: newTenant.contact_person,
+        email: newTenant.email || null,
+        phone: newTenant.phone || null,
+        stall_number: newTenant.stall_number || null,
+        status: "active",
+        monthly_rent: newTenant.monthly_rent ? parseFloat(newTenant.monthly_rent) : null,
+        lease_start_date: newTenant.lease_start_date || null,
+        lease_end_date: newTenant.lease_end_date || null,
+      });
 
       // Update stall occupancy status
       if (newTenant.stall_number) {
-        await supabase
-          .from("stalls")
-          .update({ occupancy_status: "occupied" })
-          .eq("stall_code", newTenant.stall_number);
+        const stallsData = await stallsService.getAll();
+        const stall = stallsData?.find((s: any) => s.stall_code === newTenant.stall_number);
+        if (stall) {
+          await stallsService.update(stall.id, { occupancy_status: "occupied" });
+        }
       }
 
       toast({
@@ -191,6 +159,7 @@ const TenantsPage = () => {
       
       fetchTenants();
       fetchAvailableStalls();
+      setMapRefreshTrigger(prev => prev + 1);
     } catch (error: any) {
       toast({
         title: "Error",
@@ -204,20 +173,15 @@ const TenantsPage = () => {
     if (!selectedTenant) return;
 
     try {
-      const { error } = await supabase
-        .from("tenants")
-        .update({
-          business_name: selectedTenant.business_name,
-          contact_person: selectedTenant.contact_person,
-          email: selectedTenant.email,
-          phone: selectedTenant.phone,
-          monthly_rent: selectedTenant.monthly_rent,
-          lease_start_date: selectedTenant.lease_start_date,
-          lease_end_date: selectedTenant.lease_end_date,
-        })
-        .eq("id", selectedTenant.id);
-
-      if (error) throw error;
+      await tenantsService.update(selectedTenant.id, {
+        business_name: selectedTenant.business_name,
+        contact_person: selectedTenant.contact_person,
+        email: selectedTenant.email,
+        phone: selectedTenant.phone,
+        monthly_rent: selectedTenant.monthly_rent,
+        lease_start_date: selectedTenant.lease_start_date,
+        lease_end_date: selectedTenant.lease_end_date,
+      });
 
       toast({
         title: "Tenant Updated",
@@ -240,27 +204,18 @@ const TenantsPage = () => {
     try {
       const newStatus = tenant.status === "active" ? "inactive" : "active";
       
-      const { error } = await supabase
-        .from("tenants")
-        .update({ status: newStatus })
-        .eq("id", tenant.id);
-
-      if (error) throw error;
+      await tenantsService.update(tenant.id, { status: newStatus });
 
       // Update stall occupancy based on new status
       if (tenant.stall_number) {
-        if (newStatus === "inactive") {
-          // Deactivating - free up the stall
-          await supabase
-            .from("stalls")
-            .update({ occupancy_status: "vacant" })
-            .eq("stall_code", tenant.stall_number);
-        } else {
-          // Activating - mark stall as occupied
-          await supabase
-            .from("stalls")
-            .update({ occupancy_status: "occupied" })
-            .eq("stall_code", tenant.stall_number);
+        const stallsData = await stallsService.getAll();
+        const stall = stallsData?.find((s: any) => s.stall_code === tenant.stall_number);
+        if (stall) {
+          if (newStatus === "inactive") {
+            await stallsService.update(stall.id, { occupancy_status: "vacant" });
+          } else {
+            await stallsService.update(stall.id, { occupancy_status: "occupied" });
+          }
         }
       }
 
@@ -271,6 +226,7 @@ const TenantsPage = () => {
       
       fetchTenants();
       fetchAvailableStalls();
+      setMapRefreshTrigger(prev => prev + 1);
     } catch (error: any) {
       toast({
         title: "Error",
@@ -286,19 +242,15 @@ const TenantsPage = () => {
     try {
       // If tenant has a stall, free it up first
       if (tenantToDelete.stall_number) {
-        await supabase
-          .from("stalls")
-          .update({ occupancy_status: "vacant" })
-          .eq("stall_code", tenantToDelete.stall_number);
+        const stallsData = await stallsService.getAll();
+        const stall = stallsData?.find((s: any) => s.stall_code === tenantToDelete.stall_number);
+        if (stall) {
+          await stallsService.update(stall.id, { occupancy_status: "vacant" });
+        }
       }
 
       // Delete the tenant
-      const { error } = await supabase
-        .from("tenants")
-        .delete()
-        .eq("id", tenantToDelete.id);
-
-      if (error) throw error;
+      await tenantsService.delete(tenantToDelete.id);
 
       toast({
         title: "Tenant Deleted",
@@ -309,6 +261,7 @@ const TenantsPage = () => {
       setTenantToDelete(null);
       fetchTenants();
       fetchAvailableStalls();
+      setMapRefreshTrigger(prev => prev + 1);
     } catch (error: any) {
       toast({
         title: "Error",
