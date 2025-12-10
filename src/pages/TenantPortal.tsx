@@ -1,11 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import LeaseTimeline from "@/components/LeaseTimeline";
 import { 
@@ -26,174 +24,48 @@ import {
   TrendingUp,
   RefreshCw
 } from "lucide-react";
-import { Session } from "@supabase/supabase-js";
 import { format, differenceInDays } from "date-fns";
-
-interface TenantData {
-  id: string;
-  business_name: string;
-  contact_person: string;
-  email: string | null;
-  phone: string | null;
-  stall_number: string | null;
-  monthly_rent: number | null;
-  lease_start_date: string | null;
-  lease_end_date: string | null;
-  status: string | null;
-}
-
-interface Payment {
-  id: string;
-  amount: number;
-  payment_date: string;
-  payment_method: string | null;
-  status: string | null;
-  notes: string | null;
-}
-
-interface StallData {
-  id: string;
-  stall_code: string;
-  floor: string;
-  floor_size: string | null;
-  monthly_rent: number;
-}
+import { 
+  authService, 
+  tenantUsersService, 
+  tenantsService, 
+  stallsService, 
+  paymentsService,
+  Tenant,
+  Stall,
+  Payment
+} from "@/lib/directusService";
 
 const TenantPortal = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [tenant, setTenant] = useState<TenantData | null>(null);
-  const [stall, setStall] = useState<StallData | null>(null);
+  const [tenant, setTenant] = useState<Tenant | null>(null);
+  const [stall, setStall] = useState<Stall | null>(null);
   const [payments, setPayments] = useState<Payment[]>([]);
-  const [tenantUserId, setTenantUserId] = useState<string | null>(null);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      if (!session) {
-        navigate("/tenant-login");
-      } else {
-        fetchTenantData(session.user.id);
-      }
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      setSession(session);
-      if (event === 'SIGNED_OUT') {
-        navigate("/tenant-login");
-      }
-    });
-
-    return () => subscription.unsubscribe();
+    checkAuthAndFetchData();
   }, []);
 
-  // Real-time subscription for tenant, stall, and payment updates
-  useEffect(() => {
-    if (!tenant?.id) return;
-
-    const tenantChannel = supabase
-      .channel('tenant-portal-updates')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'tenants',
-          filter: `id=eq.${tenant.id}`
-        },
-        (payload) => {
-          if (payload.eventType === 'UPDATE') {
-            const updatedTenant = payload.new as TenantData;
-            setTenant(updatedTenant);
-            
-            // If stall number changed, fetch new stall data
-            if (updatedTenant.stall_number !== tenant.stall_number) {
-              if (updatedTenant.stall_number) {
-                supabase
-                  .from("stalls")
-                  .select("*")
-                  .eq("stall_code", updatedTenant.stall_number)
-                  .single()
-                  .then(({ data }) => {
-                    if (data) setStall(data);
-                  });
-              } else {
-                setStall(null);
-              }
-            }
-            
-            toast({
-              title: "Information Updated",
-              description: "Your tenant information has been updated.",
-            });
-          }
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'payments',
-          filter: `tenant_id=eq.${tenant.id}`
-        },
-        (payload) => {
-          if (payload.eventType === 'INSERT') {
-            setPayments(prev => [payload.new as Payment, ...prev]);
-            toast({
-              title: "New Payment Recorded",
-              description: `A payment of ₱${(payload.new as Payment).amount.toLocaleString()} has been recorded.`,
-            });
-          } else if (payload.eventType === 'UPDATE') {
-            setPayments(prev => prev.map(p => p.id === (payload.new as Payment).id ? payload.new as Payment : p));
-            toast({
-              title: "Payment Updated",
-              description: "A payment status has been updated.",
-            });
-          } else if (payload.eventType === 'DELETE') {
-            setPayments(prev => prev.filter(p => p.id !== (payload.old as Payment).id));
-          }
-        }
-      )
-      .subscribe();
-
-    // Stall updates subscription
-    const stallChannel = stall?.id ? supabase
-      .channel('tenant-stall-updates')
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'stalls',
-          filter: `id=eq.${stall.id}`
-        },
-        (payload) => {
-          setStall(payload.new as StallData);
-          toast({
-            title: "Stall Updated",
-            description: "Your stall information has been updated.",
-          });
-        }
-      )
-      .subscribe() : null;
-
-    return () => {
-      supabase.removeChannel(tenantChannel);
-      if (stallChannel) supabase.removeChannel(stallChannel);
-    };
-  }, [tenant?.id, stall?.id, tenant?.stall_number]);
+  const checkAuthAndFetchData = async () => {
+    try {
+      const user = await authService.getCurrentUser();
+      if (!user) {
+        navigate("/tenant-login");
+        return;
+      }
+      await fetchTenantData(user.id);
+    } catch (error) {
+      console.error("Auth check error:", error);
+      navigate("/tenant-login");
+    }
+  };
 
   const fetchTenantData = async (userId: string) => {
     try {
-      const { data: tenantUser } = await supabase
-        .from("tenant_users")
-        .select("tenant_id")
-        .eq("user_id", userId)
-        .single();
+      const tenantUser = await tenantUsersService.getByUserId(userId);
 
       if (!tenantUser) {
         toast({
@@ -201,54 +73,44 @@ const TenantPortal = () => {
           description: "No tenant account linked. Please contact the property manager.",
           variant: "destructive",
         });
-        await supabase.auth.signOut();
+        await authService.signOut();
+        navigate("/tenant-login");
         return;
       }
 
-      setTenantUserId(tenantUser.tenant_id);
-
-      const { data: tenantData } = await supabase
-        .from("tenants")
-        .select("*")
-        .eq("id", tenantUser.tenant_id)
-        .single();
+      const tenantData = await tenantsService.getById(tenantUser.tenant_id);
 
       if (tenantData) {
         setTenant(tenantData);
 
         if (tenantData.stall_number) {
-          const { data: stallData } = await supabase
-            .from("stalls")
-            .select("*")
-            .eq("stall_code", tenantData.stall_number)
-            .single();
-          
+          const stallData = await stallsService.getByCode(tenantData.stall_number);
           if (stallData) {
             setStall(stallData);
           }
         }
 
-        const { data: paymentsData } = await supabase
-          .from("payments")
-          .select("*")
-          .eq("tenant_id", tenantUser.tenant_id)
-          .order("payment_date", { ascending: false });
-
-        if (paymentsData) {
-          setPayments(paymentsData);
-        }
+        const paymentsData = await paymentsService.getByTenantId(tenantUser.tenant_id);
+        setPayments(paymentsData);
       }
     } catch (error) {
       console.error("Error fetching tenant data:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load tenant data.",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
   };
 
   const handleRefresh = async () => {
-    if (!session?.user.id) return;
+    const user = await authService.getCurrentUser();
+    if (!user) return;
+    
     setRefreshing(true);
-    await fetchTenantData(session.user.id);
+    await fetchTenantData(user.id);
     setRefreshing(false);
     toast({
       title: "Refreshed",
@@ -257,12 +119,12 @@ const TenantPortal = () => {
   };
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
+    await authService.signOut();
     navigate("/tenant-login");
   };
 
   // Calculate payment statistics
-  const paymentStats = React.useMemo(() => {
+  const paymentStats = useMemo(() => {
     const completed = payments.filter(p => p.status === "completed");
     const pending = payments.filter(p => p.status === "pending");
     const totalPaid = completed.reduce((sum, p) => sum + p.amount, 0);
@@ -284,7 +146,7 @@ const TenantPortal = () => {
   }, [payments]);
 
   // Calculate lease status
-  const leaseStatus = React.useMemo(() => {
+  const leaseStatus = useMemo(() => {
     if (!tenant?.lease_end_date || !tenant?.lease_start_date) return null;
     
     const startDate = new Date(tenant.lease_start_date);
