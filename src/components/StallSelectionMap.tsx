@@ -134,62 +134,37 @@ export function StallSelectionMap({ selectedStallCode, onStallSelect, refreshTri
 
   useEffect(() => {
     fetchStalls();
-    
-    // Set up real-time subscriptions
-    const channel = supabase
-      .channel('stall-selection-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'stalls' }, () => {
-        fetchStalls();
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tenants' }, () => {
-        fetchStalls();
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    // Note: Real-time subscriptions not available with Directus - poll or manual refresh
   }, [refreshTrigger]);
 
   const fetchStalls = async () => {
-    const { data: stallsData, error: stallsError } = await supabase
-      .from('stalls')
-      .select('*');
-    
-    if (stallsError) {
-      console.error('Error fetching stalls:', stallsError);
-      return;
-    }
-
-    const { data: tenantsData, error: tenantsError } = await supabase
-      .from('tenants')
-      .select('*')
-      .eq('status', 'active');
-    
-    if (tenantsError) {
-      console.error('Error fetching tenants:', tenantsError);
-      return;
-    }
-    
-    if (stallsData) {
-      setStallsData(stallsData);
+    try {
+      const stallsResult = await stallsService.getAll();
+      const tenantsResult = await tenantsService.getAll();
+      const tenantsData = tenantsResult.filter((t: any) => t.status === 'active');
       
-      setBooths(currentBooths =>
-        currentBooths.map(booth => {
-          const stall = stallsData.find(s => s.stall_code === booth.id);
-          if (!stall) {
-            return { ...booth, status: 'available' };
-          }
-          
-          const tenant = tenantsData?.find(t => t.stall_number === booth.id);
-          const isOccupied = stall.occupancy_status === 'occupied' || tenant !== undefined;
-          
-          return {
-            ...booth,
-            status: isOccupied ? 'occupied' : 'available'
-          };
-        })
-      );
+      if (stallsResult) {
+        setStallsData(stallsResult);
+        
+        setBooths(currentBooths =>
+          currentBooths.map(booth => {
+            const stall = stallsResult.find((s: any) => s.stall_code === booth.id);
+            if (!stall) {
+              return { ...booth, status: 'available' };
+            }
+            
+            const tenant = tenantsData?.find((t: any) => t.stall_number === booth.id);
+            const isOccupied = stall.occupancy_status === 'occupied' || tenant !== undefined;
+            
+            return {
+              ...booth,
+              status: isOccupied ? 'occupied' : 'available'
+            };
+          })
+        );
+      }
+    } catch (error) {
+      console.error('Error fetching stalls:', error);
     }
   };
 

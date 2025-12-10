@@ -157,50 +157,40 @@ export function DirectoryMap({ highlightedStallCode, hideOccupiedDetails = false
   }, []);
 
   const fetchStallsAndTenants = async () => {
-    // Fetch stalls
-    const { data: stallsData, error: stallsError } = await supabase
-      .from('stalls')
-      .select('*');
-    
-    if (stallsError) {
-      console.error('Error fetching stalls:', stallsError);
-      return;
-    }
-
-    // Fetch active tenants from public view (RLS-safe for guests)
-    const { data: tenantsData, error: tenantsError } = await supabase
-      .from('tenants_public')
-      .select('*')
-      .eq('status', 'active');
-    
-    if (tenantsError) {
-      console.error('Error fetching tenants:', tenantsError);
-      return;
-    }
-    
-    if (stallsData) {
-      setStallsData(stallsData);
+    try {
+      // Fetch stalls
+      const stallsResult = await stallsService.getAll();
       
-      // Update booth statuses based on actual stall data from database
-      // Match by stall_code to ensure proper connection
-      setBooths(currentBooths =>
-        currentBooths.map(booth => {
-          const stall = stallsData.find(s => s.stall_code === booth.id);
-          if (!stall) {
-            // If no matching stall in database, keep as available
-            return { ...booth, status: 'available' };
-          }
-          
-          // Check if there's an active tenant for this stall
-          const tenant = tenantsData?.find(t => t.stall_number === booth.id);
-          const isOccupied = stall.occupancy_status === 'occupied' || tenant !== undefined;
-          
-          return {
-            ...booth,
-            status: isOccupied ? 'occupied' : 'available'
-          };
-        })
-      );
+      // Fetch active tenants
+      const tenantsResult = await tenantsService.getAll();
+      const tenantsData = tenantsResult.filter((t: any) => t.status === 'active');
+    
+      if (stallsResult) {
+        setStallsData(stallsResult);
+        
+        // Update booth statuses based on actual stall data from database
+        // Match by stall_code to ensure proper connection
+        setBooths(currentBooths =>
+          currentBooths.map(booth => {
+            const stall = stallsResult.find((s: any) => s.stall_code === booth.id);
+            if (!stall) {
+              // If no matching stall in database, keep as available
+              return { ...booth, status: 'available' };
+            }
+            
+            // Check if there's an active tenant for this stall
+            const tenant = tenantsData?.find((t: any) => t.stall_number === booth.id);
+            const isOccupied = stall.occupancy_status === 'occupied' || tenant !== undefined;
+            
+            return {
+              ...booth,
+              status: isOccupied ? 'occupied' : 'available'
+            };
+          })
+        );
+      }
+    } catch (error) {
+      console.error('Error fetching stalls:', error);
     }
   };
 
@@ -216,18 +206,13 @@ export function DirectoryMap({ highlightedStallCode, hideOccupiedDetails = false
       
       // Fetch tenant data if stall is occupied
       if (stall.occupancy_status === 'occupied') {
-        const { data: tenantData, error } = await supabase
-          .from('tenants')
-          .select('*')
-          .eq('stall_number', id)
-          .eq('status', 'active')
-          .maybeSingle();
-        
-        if (error) {
+        try {
+          const tenantsResult = await tenantsService.getAll();
+          const tenantData = tenantsResult.find((t: any) => t.stall_number === id && t.status === 'active');
+          setSelectedTenant(tenantData || null);
+        } catch (error) {
           console.error('Error fetching tenant:', error);
           setSelectedTenant(null);
-        } else {
-          setSelectedTenant(tenantData);
         }
       } else {
         setSelectedTenant(null);
