@@ -4,8 +4,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Users, Home, MapPin, TrendingUp } from "lucide-react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { DirectoryMap } from "@/components/DirectoryMap";
-import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
+import { stallsService, tenantsService, paymentsService } from "@/lib/directusService";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -23,43 +23,18 @@ const Dashboard = () => {
   useEffect(() => {
     fetchDashboardData();
     
-    const stallsChannel = supabase
-      .channel('dashboard-stalls')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'stalls' }, fetchDashboardData)
-      .subscribe();
-
-    const tenantsChannel = supabase
-      .channel('dashboard-tenants')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tenants' }, fetchDashboardData)
-      .subscribe();
-
-    const paymentsChannel = supabase
-      .channel('dashboard-payments')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'payments' }, fetchDashboardData)
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(stallsChannel);
-      supabase.removeChannel(tenantsChannel);
-      supabase.removeChannel(paymentsChannel);
-    };
+    // Poll for updates every 30 seconds since Directus doesn't have realtime by default
+    const interval = setInterval(fetchDashboardData, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   const fetchDashboardData = async () => {
     try {
-      const [tenantsResult, stallsResult, paymentsResult] = await Promise.all([
-        supabase.from("tenants").select("*"),
-        supabase.from("stalls").select("*"),
-        supabase.from("payments").select("*, tenants(business_name)").order("created_at", { ascending: false }).limit(3)
+      const [tenants, stalls, payments] = await Promise.all([
+        tenantsService.getAll(),
+        stallsService.getAll(),
+        paymentsService.getAll()
       ]);
-
-      if (tenantsResult.error) throw tenantsResult.error;
-      if (stallsResult.error) throw stallsResult.error;
-      if (paymentsResult.error) throw paymentsResult.error;
-
-      const tenants = tenantsResult.data || [];
-      const stalls = stallsResult.data || [];
-      const payments = paymentsResult.data || [];
 
       const activeTenants = tenants.filter(t => t.status === "active").length;
       const occupiedStalls = stalls.filter(s => s.occupancy_status === "occupied").length;
@@ -84,7 +59,7 @@ const Dashboard = () => {
 
       const recentActivities = payments.slice(0, 3).map(payment => ({
         type: "payment",
-        message: `Payment received from ${payment.tenants?.business_name || "Unknown"}`,
+        message: `Payment received from ${(payment as any).tenants?.business_name || "Unknown"}`,
         time: new Date(payment.created_at).toLocaleString(),
         status: payment.status
       }));

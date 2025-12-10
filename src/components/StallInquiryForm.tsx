@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { supabase } from "@/integrations/supabase/client";
+import { inquiriesService } from "@/lib/directusService";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -54,16 +54,17 @@ export function StallInquiryForm({ isOpen, onClose, stallId, stallCode }: StallI
   const onSubmit = async (data: InquiryFormData) => {
     setIsSubmitting(true);
     try {
-      const { error } = await supabase.from("inquiries").insert({
+      const result = await inquiriesService.create({
         stall_id: stallId,
         stall_code: stallCode,
         name: data.name,
         email: data.email,
         phone: data.phone || null,
         message: data.message || null,
+        status: "pending",
       });
 
-      if (error) throw error;
+      if (!result) throw new Error("Failed to submit inquiry");
 
       toast.success("Inquiry submitted successfully! We'll get back to you soon.");
       reset();
