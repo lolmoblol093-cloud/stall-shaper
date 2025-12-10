@@ -10,12 +10,11 @@ import {
   Home, 
   Download,
   DollarSign,
-  Calendar
 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { stallsService, tenantsService, paymentsService } from "@/lib/directusService";
 import { useToast } from "@/hooks/use-toast";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
-import { format, subMonths, startOfMonth, endOfMonth } from "date-fns";
+import { format, subMonths } from "date-fns";
 
 interface FloorOccupancy {
   floor: string;
@@ -40,7 +39,7 @@ interface Payment {
   tenant_name?: string;
 }
 
-const COLORS = ['hsl(142, 76%, 36%)', 'hsl(0, 84%, 60%)']; // Green for occupied, Red for vacant
+const COLORS = ['hsl(142, 76%, 36%)', 'hsl(0, 84%, 60%)'];
 
 const ReportsPage = () => {
   const { toast } = useToast();
@@ -62,19 +61,17 @@ const ReportsPage = () => {
 
   const fetchReportData = async () => {
     try {
-      // Fetch tenants data
-      const { data: tenantsData, error: tenantsError } = await supabase
-        .from("tenants")
-        .select("*");
-      
-      if (tenantsError) throw tenantsError;
+      const [tenantsData, stalls, paymentsData] = await Promise.all([
+        tenantsService.getAll(),
+        stallsService.getAll(),
+        paymentsService.getAll()
+      ]);
       
       setTenants(tenantsData || []);
       setTenantCount(tenantsData?.length || 0);
-      setActiveTenantsCount(tenantsData?.filter(t => t.status === "active").length || 0);
+      setActiveTenantsCount(tenantsData?.filter((t: any) => t.status === "active").length || 0);
       
-      // Calculate total revenue from active tenants
-      const revenue = tenantsData?.reduce((sum, tenant) => {
+      const revenue = tenantsData?.reduce((sum: number, tenant: any) => {
         if (tenant.status === "active") {
           return sum + (tenant.monthly_rent || 0);
         }
@@ -82,17 +79,9 @@ const ReportsPage = () => {
       }, 0) || 0;
       setTotalRevenue(revenue);
 
-      // Fetch stalls data
-      const { data: stalls, error: stallsError } = await supabase
-        .from("stalls")
-        .select("*");
-      
-      if (stallsError) throw stallsError;
-      
       setStallsCount(stalls?.length || 0);
-      setOccupiedStallsCount(stalls?.filter(s => s.occupancy_status === "occupied").length || 0);
+      setOccupiedStallsCount(stalls?.filter((s: any) => s.occupancy_status === "occupied").length || 0);
       
-      // Calculate floor occupancy breakdown
       const normalizeFloorName = (floor: string): string => {
         const lowerFloor = floor.toLowerCase().trim();
         if (lowerFloor === "ground" || lowerFloor === "ground floor") return "Ground Floor";
@@ -102,7 +91,7 @@ const ReportsPage = () => {
       };
 
       const floorData: { [key: string]: { occupied: number; vacant: number } } = {};
-      stalls?.forEach(stall => {
+      stalls?.forEach((stall: any) => {
         const floor = normalizeFloorName(stall.floor || "Unknown");
         if (!floorData[floor]) {
           floorData[floor] = { occupied: 0, vacant: 0 };
@@ -129,23 +118,13 @@ const ReportsPage = () => {
       
       setFloorOccupancy(floorOccupancyArray);
 
-      // Fetch payments data
-      const { data: paymentsData, error: paymentsError } = await supabase
-        .from("payments")
-        .select("*")
-        .order("payment_date", { ascending: false });
-      
-      if (paymentsError) throw paymentsError;
-
-      // Map tenant names to payments
-      const paymentsWithNames = paymentsData?.map(payment => ({
+      const paymentsWithNames = paymentsData?.map((payment: any) => ({
         ...payment,
-        tenant_name: tenantsData?.find(t => t.id === payment.tenant_id)?.business_name || "Unknown"
+        tenant_name: tenantsData?.find((t: any) => t.id === payment.tenant_id)?.business_name || "Unknown"
       })) || [];
       
       setPayments(paymentsWithNames);
 
-      // Calculate monthly revenue trends (last 6 months)
       const monthlyData: { [key: string]: number } = {};
       for (let i = 5; i >= 0; i--) {
         const date = subMonths(new Date(), i);
@@ -153,7 +132,7 @@ const ReportsPage = () => {
         monthlyData[monthKey] = 0;
       }
 
-      paymentsData?.forEach(payment => {
+      paymentsData?.forEach((payment: any) => {
         if (payment.status === "completed") {
           const monthKey = format(new Date(payment.payment_date), "MMM yyyy");
           if (monthlyData.hasOwnProperty(monthKey)) {
@@ -221,7 +200,7 @@ const ReportsPage = () => {
     });
   };
 
-  const exportReport = (format: string) => {
+  const exportReport = (formatType: string) => {
     let data: any[] = [];
     let filename = "";
 
@@ -267,14 +246,13 @@ const ReportsPage = () => {
         break;
     }
 
-    if (format === "csv") {
+    if (formatType === "csv") {
       exportToCSV(data, filename);
     } else {
       toast({
         title: "Export Started",
-        description: `${format.toUpperCase()} export is being prepared. CSV format is currently fully supported.`,
+        description: `${formatType.toUpperCase()} export is being prepared. CSV format is currently fully supported.`,
       });
-      // For now, default to CSV for other formats
       exportToCSV(data, filename);
     }
   };
@@ -489,7 +467,7 @@ const ReportsPage = () => {
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
                     </Pie>
-                    <Tooltip />
+                    <Tooltip formatter={(value) => `${value} stalls`} />
                     <Legend />
                   </PieChart>
                 </ResponsiveContainer>
@@ -500,8 +478,8 @@ const ReportsPage = () => {
 
         <Card>
           <CardHeader>
-            <CardTitle>Revenue Trends (Last 6 Months)</CardTitle>
-            <CardDescription>Monthly payment revenue from completed payments</CardDescription>
+            <CardTitle>Revenue Trends</CardTitle>
+            <CardDescription>Monthly payment revenue over the last 6 months</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="h-[300px]">
@@ -509,14 +487,11 @@ const ReportsPage = () => {
                 <BarChart data={monthlyRevenue}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                   <XAxis dataKey="month" className="text-xs" />
-                  <YAxis 
-                    tickFormatter={(value) => `₱${value.toLocaleString()}`}
-                    className="text-xs"
-                  />
+                  <YAxis className="text-xs" tickFormatter={(value) => `₱${(value / 1000).toFixed(0)}k`} />
                   <Tooltip 
-                    formatter={(value: number) => [`₱${value.toLocaleString()}`, "Revenue"]}
+                    formatter={(value: number) => [`₱${value.toLocaleString()}`, 'Revenue']}
                     contentStyle={{ 
-                      backgroundColor: 'hsl(var(--card))', 
+                      backgroundColor: 'hsl(var(--card))',
                       border: '1px solid hsl(var(--border))',
                       borderRadius: '8px'
                     }}
@@ -530,44 +505,30 @@ const ReportsPage = () => {
 
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5" />
-              Recent Payments
-            </CardTitle>
+            <CardTitle>Recent Payments</CardTitle>
             <CardDescription>Latest payment transactions</CardDescription>
           </CardHeader>
           <CardContent>
-            {payments.length === 0 ? (
-              <p className="text-muted-foreground text-center py-8">No payment records found</p>
-            ) : (
-              <div className="space-y-3">
-                {payments.slice(0, 10).map((payment) => (
-                  <div 
-                    key={payment.id} 
-                    className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
-                  >
+            <div className="space-y-4">
+              {payments.length === 0 ? (
+                <p className="text-muted-foreground text-center py-4">No payments recorded</p>
+              ) : (
+                payments.slice(0, 5).map((payment) => (
+                  <div key={payment.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                     <div>
                       <p className="font-medium">{payment.tenant_name}</p>
                       <p className="text-sm text-muted-foreground">
-                        {format(new Date(payment.payment_date), "MMM dd, yyyy")} • {payment.payment_method || "N/A"}
+                        {format(new Date(payment.payment_date), "MMM d, yyyy")} • {payment.payment_method?.replace("_", " ") || "N/A"}
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="font-bold text-foreground">₱{Number(payment.amount).toLocaleString()}</p>
-                      <span className={`text-xs px-2 py-1 rounded-full ${
-                        payment.status === "completed" 
-                          ? "bg-green-500/20 text-green-600" 
-                          : payment.status === "pending"
-                          ? "bg-yellow-500/20 text-yellow-600"
-                          : "bg-muted text-muted-foreground"
-                      }`}>
-                        {payment.status || "unknown"}
-                      </span>
+                      <p className="font-bold text-primary">₱{Number(payment.amount).toLocaleString()}</p>
+                      <p className="text-xs text-muted-foreground capitalize">{payment.status}</p>
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
+                ))
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>
