@@ -19,9 +19,8 @@ import {
 import { DirectoryMap } from "@/components/DirectoryMap";
 import { StallInquiryForm } from "@/components/StallInquiryForm";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { stallsService, authService } from "@/lib/directusService";
 import { useToast } from "@/hooks/use-toast";
-import { Session } from "@supabase/supabase-js";
 
 interface AvailableStall {
   id: string;
@@ -36,7 +35,7 @@ const GuestView = () => {
   const { toast } = useToast();
   const [displayMode, setDisplayMode] = useState<"list" | "map">("list");
   const [selectedFloor, setSelectedFloor] = useState<string>("all");
-  const [session, setSession] = useState<Session | null>(null);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [availableStalls, setAvailableStalls] = useState<AvailableStall[]>([]);
   const [loading, setLoading] = useState(true);
   const [inquiryStall, setInquiryStall] = useState<{ id: string; stallCode: string } | null>(null);
@@ -44,28 +43,18 @@ const GuestView = () => {
   const floors = ["all", "Ground Floor", "Second Floor", "Third Floor"];
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
-
+    checkAuth();
     fetchData();
-
-    const stallsChannel = supabase
-      .channel('stalls-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'stalls' }, () => {
-        fetchData();
-      })
-      .subscribe();
-
-    return () => {
-      subscription.unsubscribe();
-      supabase.removeChannel(stallsChannel);
-    };
   }, []);
+
+  const checkAuth = async () => {
+    try {
+      const user = await authService.getCurrentUser();
+      setIsLoggedIn(!!user);
+    } catch {
+      setIsLoggedIn(false);
+    }
+  };
 
   const normalizeFloorName = (floor: string): string => {
     const lowerFloor = floor.toLowerCase().trim();
@@ -78,15 +67,11 @@ const GuestView = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const { data: stallsData, error: stallsError } = await supabase
-        .from('stalls')
-        .select('*');
-
-      if (stallsError) throw stallsError;
+      const stallsData = await stallsService.getAll();
 
       const availableStallsList: AvailableStall[] = (stallsData || [])
-        .filter(stall => stall.occupancy_status === 'vacant')
-        .map(stall => ({
+        .filter((stall: any) => stall.occupancy_status === 'vacant')
+        .map((stall: any) => ({
           id: stall.id,
           stallCode: stall.stall_code,
           floor: normalizeFloorName(stall.floor),
@@ -109,7 +94,7 @@ const GuestView = () => {
 
   const handleLogout = async () => {
     try {
-      await supabase.auth.signOut();
+      await authService.signOut();
       toast({
         title: "Logged out",
         description: "You have been logged out successfully",
@@ -158,7 +143,7 @@ const GuestView = () => {
                 <Store className="h-4 w-4 mr-2" />
                 Tenant Portal
               </Button>
-              {session ? (
+              {isLoggedIn ? (
                 <Button
                   variant="outline"
                   size="sm"

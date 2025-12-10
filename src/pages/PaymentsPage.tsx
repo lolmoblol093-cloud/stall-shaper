@@ -1,7 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -39,11 +37,31 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { paymentsService, tenantsService } from "@/lib/directusService";
+
+interface Tenant {
+  id: string;
+  business_name: string;
+  monthly_rent: number | null;
+}
+
+interface Payment {
+  id: string;
+  tenant_id: string;
+  amount: number;
+  payment_date: string;
+  payment_method: string | null;
+  status: string | null;
+  notes: string | null;
+  tenant_name?: string;
+}
 
 const PaymentsPage = () => {
   const { toast } = useToast();
-  const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [formData, setFormData] = useState({
     tenant_id: "",
     amount: "",
@@ -53,42 +71,38 @@ const PaymentsPage = () => {
     notes: "",
   });
 
-  // Fetch payments
-  const { data: payments, isLoading } = useQuery({
-    queryKey: ["payments"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("payments")
-        .select(`
-          *,
-          tenants (
-            business_name,
-            contact_person
-          )
-        `)
-        .order("payment_date", { ascending: false });
-      
-      if (error) throw error;
-      return data;
-    },
-  });
+  useEffect(() => {
+    fetchData();
+  }, []);
 
-  // Fetch tenants for the dropdown
-  const { data: tenants } = useQuery({
-    queryKey: ["tenants"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("tenants")
-        .select("id, business_name, monthly_rent")
-        .eq("status", "active")
-        .order("business_name");
-      
-      if (error) throw error;
-      return data;
-    },
-  });
+  const fetchData = async () => {
+    try {
+      const [paymentsData, tenantsData] = await Promise.all([
+        paymentsService.getAll(),
+        tenantsService.getAll()
+      ]);
 
-  // Auto-fill amount when tenant is selected
+      const activeTenants = tenantsData?.filter((t: any) => t.status === "active") || [];
+      setTenants(activeTenants);
+
+      // Map tenant names to payments
+      const paymentsWithNames = paymentsData?.map((payment: any) => ({
+        ...payment,
+        tenant_name: tenantsData?.find((t: any) => t.id === payment.tenant_id)?.business_name || "Unknown"
+      })) || [];
+
+      setPayments(paymentsWithNames);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: "Failed to load data: " + error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleTenantChange = (tenantId: string) => {
     const selectedTenant = tenants?.find(t => t.id === tenantId);
     setFormData({
@@ -98,29 +112,23 @@ const PaymentsPage = () => {
     });
   };
 
-  // Add payment mutation
-  const addPayment = useMutation({
-    mutationFn: async (newPayment: typeof formData) => {
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      const { error } = await supabase.from("payments").insert({
-        tenant_id: newPayment.tenant_id,
-        amount: parseFloat(newPayment.amount),
-        payment_date: format(newPayment.payment_date, "yyyy-MM-dd"),
-        payment_method: newPayment.payment_method,
-        status: newPayment.status,
-        notes: newPayment.notes || null,
-        created_by: user?.id,
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await paymentsService.create({
+        tenant_id: formData.tenant_id,
+        amount: parseFloat(formData.amount),
+        payment_date: format(formData.payment_date, "yyyy-MM-dd"),
+        payment_method: formData.payment_method,
+        status: formData.status,
+        notes: formData.notes || null,
       });
-      
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["payments"] });
+
       toast({
         title: "Payment recorded",
         description: "Payment has been successfully recorded",
       });
+
       setIsDialogOpen(false);
       setFormData({
         tenant_id: "",
@@ -130,19 +138,14 @@ const PaymentsPage = () => {
         status: "completed",
         notes: "",
       });
-    },
-    onError: (error) => {
+      fetchData();
+    } catch (error: any) {
       toast({
         title: "Error",
         description: "Failed to record payment: " + error.message,
         variant: "destructive",
       });
-    },
-  });
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    addPayment.mutate(formData);
+    }
   };
 
   const getStatusBadge = (status: string) => {
@@ -314,31 +317,26 @@ const PaymentsPage = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {payments.map((payment: any) => (
+                {payments.map((payment) => (
                   <TableRow key={payment.id}>
                     <TableCell>
                       {format(new Date(payment.payment_date), "MMM dd, yyyy")}
                     </TableCell>
                     <TableCell>
-                      <div>
-                        <div className="font-medium">
-                          {payment.tenants?.business_name}
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          {payment.tenants?.contact_person}
-                        </div>
+                      <div className="font-medium">
+                        {payment.tenant_name}
                       </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center font-medium">
                         <span className="mr-1">₱</span>
-                        {parseFloat(payment.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        {parseFloat(String(payment.amount)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </div>
                     </TableCell>
                     <TableCell className="capitalize">
-                      {payment.payment_method.replace("_", " ")}
+                      {payment.payment_method?.replace("_", " ") || "-"}
                     </TableCell>
-                    <TableCell>{getStatusBadge(payment.status)}</TableCell>
+                    <TableCell>{getStatusBadge(payment.status || "pending")}</TableCell>
                     <TableCell className="text-muted-foreground">
                       {payment.notes || "-"}
                     </TableCell>

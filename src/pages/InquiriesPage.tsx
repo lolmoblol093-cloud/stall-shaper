@@ -33,7 +33,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { supabase } from "@/integrations/supabase/client";
+import { inquiriesService } from "@/lib/directusService";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import {
@@ -73,29 +73,11 @@ const InquiriesPage = () => {
 
   useEffect(() => {
     fetchInquiries();
-
-    const channel = supabase
-      .channel("inquiries-changes")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "inquiries" },
-        () => fetchInquiries()
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
   }, []);
 
   const fetchInquiries = async () => {
     try {
-      const { data, error } = await supabase
-        .from("inquiries")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
+      const data = await inquiriesService.getAll();
       setInquiries(data || []);
     } catch (error) {
       console.error("Error fetching inquiries:", error);
@@ -107,12 +89,7 @@ const InquiriesPage = () => {
 
   const updateStatus = async (id: string, status: string) => {
     try {
-      const { error } = await supabase
-        .from("inquiries")
-        .update({ status })
-        .eq("id", id);
-
-      if (error) throw error;
+      await inquiriesService.update(id, { status });
       toast.success(`Inquiry marked as ${status}`);
       fetchInquiries();
     } catch (error) {
@@ -123,9 +100,7 @@ const InquiriesPage = () => {
 
   const deleteInquiry = async (id: string) => {
     try {
-      const { error } = await supabase.from("inquiries").delete().eq("id", id);
-
-      if (error) throw error;
+      await inquiriesService.delete(id);
       toast.success("Inquiry deleted");
       fetchInquiries();
     } catch (error) {
