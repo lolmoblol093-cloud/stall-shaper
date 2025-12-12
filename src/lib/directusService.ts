@@ -122,6 +122,16 @@ export const stallsService = {
     }
   },
 
+  async create(data: Partial<Stall>): Promise<Stall | null> {
+    try {
+      const result = await directus.request(createItem('stalls', data));
+      return result as Stall;
+    } catch (error) {
+      console.error('Error creating stall:', error);
+      throw error;
+    }
+  },
+
   async update(id: string, data: Partial<Stall>): Promise<Stall | null> {
     try {
       const result = await directus.request(updateItem('stalls', id, data));

@@ -37,7 +37,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
-import { Home, Search, Edit, ImageIcon, MoreVertical, Trash2, UserPlus } from "lucide-react";
+import { Home, Search, Edit, ImageIcon, MoreVertical, Trash2, UserPlus, Plus } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { stallsService, tenantsService } from "@/lib/directusService";
 import { StallSelectionMap } from "@/components/StallSelectionMap";
@@ -62,6 +63,7 @@ const StallsPage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -71,6 +73,12 @@ const StallsPage = () => {
   const [loading, setLoading] = useState(true);
   const [selectedStallFromMap, setSelectedStallFromMap] = useState<string | null>(null);
   const [mapRefreshTrigger, setMapRefreshTrigger] = useState(0);
+  const [newStall, setNewStall] = useState({
+    stall_code: "",
+    floor: "Ground Floor",
+    monthly_rent: "",
+    floor_size: "",
+  });
 
   useEffect(() => {
     fetchStalls();
@@ -172,6 +180,48 @@ const StallsPage = () => {
     }
   };
 
+  const handleAddStall = async () => {
+    if (!newStall.stall_code || !newStall.monthly_rent) {
+      toast({
+        title: "Validation Error",
+        description: "Stall code and monthly rent are required",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      await stallsService.create({
+        stall_code: newStall.stall_code,
+        floor: newStall.floor,
+        monthly_rent: parseFloat(newStall.monthly_rent),
+        floor_size: newStall.floor_size || null,
+        occupancy_status: "vacant",
+      });
+
+      toast({
+        title: "Stall Created",
+        description: `Stall ${newStall.stall_code} has been created successfully`,
+      });
+      
+      setIsAddDialogOpen(false);
+      setNewStall({
+        stall_code: "",
+        floor: "Ground Floor",
+        monthly_rent: "",
+        floor_size: "",
+      });
+      fetchStalls();
+      setMapRefreshTrigger(prev => prev + 1);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create stall",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleUpdateStall = async () => {
     if (!selectedStall) return;
 
@@ -222,6 +272,10 @@ const StallsPage = () => {
               Manage all stalls and their occupancy status
             </p>
           </div>
+          <Button onClick={() => setIsAddDialogOpen(true)} className="flex items-center space-x-2">
+            <Plus className="h-4 w-4" />
+            <span>Add New Stall</span>
+          </Button>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -502,6 +556,67 @@ const StallsPage = () => {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Add Stall Dialog */}
+        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Add New Stall</DialogTitle>
+              <DialogDescription>
+                Create a new stall in the marketplace
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 pt-4">
+              <div className="space-y-2">
+                <Label htmlFor="stall-code">Stall Code *</Label>
+                <Input 
+                  id="stall-code" 
+                  placeholder="e.g., b87, c20, d55"
+                  value={newStall.stall_code}
+                  onChange={(e) => setNewStall({...newStall, stall_code: e.target.value})}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="floor">Floor *</Label>
+                <Select 
+                  value={newStall.floor} 
+                  onValueChange={(value) => setNewStall({...newStall, floor: value})}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select floor" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background border z-50">
+                    <SelectItem value="Ground Floor">Ground Floor</SelectItem>
+                    <SelectItem value="Second Floor">Second Floor</SelectItem>
+                    <SelectItem value="Third Floor">Third Floor</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="new-monthly-rent">Monthly Rent (₱) *</Label>
+                <Input 
+                  id="new-monthly-rent" 
+                  type="number"
+                  placeholder="e.g., 2500"
+                  value={newStall.monthly_rent}
+                  onChange={(e) => setNewStall({...newStall, monthly_rent: e.target.value})}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="new-floor-size">Floor Size</Label>
+                <Input 
+                  id="new-floor-size" 
+                  placeholder="e.g., 3x3 sqm"
+                  value={newStall.floor_size}
+                  onChange={(e) => setNewStall({...newStall, floor_size: e.target.value})}
+                />
+              </div>
+              <Button onClick={handleAddStall} className="w-full">
+                Create Stall
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>
   );
