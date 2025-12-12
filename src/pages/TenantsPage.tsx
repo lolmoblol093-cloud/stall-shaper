@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -52,6 +53,7 @@ interface Stall {
 }
 
 const TenantsPage = () => {
+  const location = useLocation();
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -79,6 +81,19 @@ const TenantsPage = () => {
     lease_start_date: "",
     lease_end_date: "",
   });
+
+  // Handle navigation state from StallsPage
+  useEffect(() => {
+    const state = location.state as { openAddTenant?: boolean; stallCode?: string } | null;
+    if (state?.openAddTenant) {
+      setIsAddDialogOpen(true);
+      if (state.stallCode) {
+        setNewTenant(prev => ({ ...prev, stall_number: state.stallCode || "" }));
+      }
+      // Clear the state to prevent re-opening on refresh
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   useEffect(() => {
     fetchTenants();
