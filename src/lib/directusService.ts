@@ -143,6 +143,16 @@ export const stallsService = {
       console.error('Error fetching vacant stalls:', error);
       return [];
     }
+  },
+
+  async delete(id: string): Promise<boolean> {
+    try {
+      await directus.request(deleteItem('stalls', id));
+      return true;
+    } catch (error) {
+      console.error('Error deleting stall:', error);
+      return false;
+    }
   }
 };
 

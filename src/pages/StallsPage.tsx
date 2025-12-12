@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,8 +20,24 @@ import {
   DialogHeader, 
   DialogTitle 
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
-import { Home, Search, Edit, ImageIcon } from "lucide-react";
+import { Home, Search, Edit, ImageIcon, MoreVertical, Trash2, UserPlus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { stallsService, tenantsService } from "@/lib/directusService";
 import { StallSelectionMap } from "@/components/StallSelectionMap";
@@ -42,9 +59,12 @@ interface Tenant {
 }
 
 const StallsPage = () => {
+  const navigate = useNavigate();
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedStall, setSelectedStall] = useState<Stall | null>(null);
   const [stalls, setStalls] = useState<Stall[]>([]);
   const [tenants, setTenants] = useState<Tenant[]>([]);
@@ -93,16 +113,62 @@ const StallsPage = () => {
     getTenantName(stall.stall_code)?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const handleViewDetails = (stall: Stall) => {
+    setSelectedStall(stall);
+    setSelectedStallFromMap(stall.stall_code);
+    setIsDetailsDialogOpen(true);
+  };
+
   const handleEditStall = (stall: Stall) => {
     setSelectedStall(stall);
     setSelectedStallFromMap(stall.stall_code);
+    setIsDetailsDialogOpen(false);
     setIsEditDialogOpen(true);
+  };
+
+  const handleDeleteStall = (stall: Stall) => {
+    setSelectedStall(stall);
+    setIsDetailsDialogOpen(false);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleAddTenant = (stall: Stall) => {
+    setIsDetailsDialogOpen(false);
+    navigate("/dashboard/tenants", { state: { openAddTenant: true, stallCode: stall.stall_code } });
   };
 
   const handleStallSelectFromMap = (stallCode: string, stallData: any) => {
     const stall = stalls.find(s => s.stall_code === stallCode);
     if (stall) {
-      handleEditStall(stall);
+      handleViewDetails(stall);
+    }
+  };
+
+  const handleRowClick = (stall: Stall) => {
+    if (stall.occupancy_status === "vacant") {
+      handleViewDetails(stall);
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!selectedStall) return;
+
+    try {
+      await stallsService.delete(selectedStall.id);
+      toast({
+        title: "Stall Deleted",
+        description: `Stall ${selectedStall.stall_code} has been deleted`,
+      });
+      setIsDeleteDialogOpen(false);
+      setSelectedStall(null);
+      fetchStalls();
+      setMapRefreshTrigger(prev => prev + 1);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
     }
   };
 
@@ -239,7 +305,11 @@ const StallsPage = () => {
                   </TableRow>
                 ) : (
                   filteredStalls.map((stall) => (
-                    <TableRow key={stall.id}>
+                    <TableRow 
+                      key={stall.id}
+                      className={stall.occupancy_status === "vacant" ? "cursor-pointer hover:bg-muted/50" : ""}
+                      onClick={() => handleRowClick(stall)}
+                    >
                       <TableCell className="font-medium">
                         <div className="flex items-center space-x-2">
                           <span>Stall {stall.stall_code}</span>
@@ -265,15 +335,30 @@ const StallsPage = () => {
                       <TableCell>
                         {getTenantName(stall.stall_code) || "-"}
                       </TableCell>
-                      <TableCell>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => handleEditStall(stall)}
-                        >
-                          <Edit className="h-4 w-4 mr-1" />
-                          Edit
-                        </Button>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="bg-background border z-50">
+                            <DropdownMenuItem onClick={() => handleEditStall(stall)}>
+                              <Edit className="h-4 w-4 mr-2" />
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleDeleteStall(stall)} className="text-destructive">
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Delete
+                            </DropdownMenuItem>
+                            {stall.occupancy_status === "vacant" && (
+                              <DropdownMenuItem onClick={() => handleAddTenant(stall)}>
+                                <UserPlus className="h-4 w-4 mr-2" />
+                                Add Tenant
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </TableCell>
                     </TableRow>
                   ))
@@ -302,6 +387,69 @@ const StallsPage = () => {
           </CardContent>
         </Card>
 
+        {/* Stall Details Modal */}
+        <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Stall Details</DialogTitle>
+              <DialogDescription>
+                View stall information
+              </DialogDescription>
+            </DialogHeader>
+            {selectedStall && (
+              <div className="space-y-4 pt-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Stall Code</p>
+                    <p className="font-medium">{selectedStall.stall_code}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Floor</p>
+                    <p className="font-medium">{selectedStall.floor}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Monthly Rent</p>
+                    <p className="font-medium">₱{selectedStall.monthly_rent.toLocaleString()}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Floor Size</p>
+                    <p className="font-medium">{selectedStall.floor_size || "-"}</p>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <p className="text-sm text-muted-foreground">Status:</p>
+                  <Badge
+                    variant="default"
+                    className={selectedStall.occupancy_status === "occupied" 
+                      ? "bg-status-occupied text-white" 
+                      : "bg-status-vacant text-white"
+                    }
+                  >
+                    {selectedStall.occupancy_status}
+                  </Badge>
+                </div>
+                <div className="flex gap-2 pt-4">
+                  <Button variant="outline" onClick={() => handleEditStall(selectedStall)} className="flex-1">
+                    <Edit className="h-4 w-4 mr-2" />
+                    Edit
+                  </Button>
+                  <Button variant="destructive" onClick={() => handleDeleteStall(selectedStall)} className="flex-1">
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete
+                  </Button>
+                  {selectedStall.occupancy_status === "vacant" && (
+                    <Button onClick={() => handleAddTenant(selectedStall)} className="flex-1">
+                      <UserPlus className="h-4 w-4 mr-2" />
+                      Add Tenant
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit Stall Dialog */}
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
           <DialogContent className="max-w-md">
             <DialogHeader>
@@ -336,6 +484,24 @@ const StallsPage = () => {
             )}
           </DialogContent>
         </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Stall</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete stall {selectedStall?.stall_code}? This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </DashboardLayout>
   );
